@@ -1,4 +1,4 @@
-import { getRedis } from "./redis";
+import { getRedis } from "./redis.js";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 

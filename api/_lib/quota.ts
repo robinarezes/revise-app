@@ -1,4 +1,4 @@
-import { getRedis } from "./redis";
+import { getRedis } from "./redis.js";
 
 const DAILY_QUOTA = Number(process.env.DAILY_QUOTA ?? 5);
 const KEY_TTL_SECONDS = 60 * 60 * 26; // a little over a day, as a safety margin

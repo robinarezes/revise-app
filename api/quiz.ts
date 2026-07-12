@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { callClaudeTool } from "./_lib/anthropic";
-import { checkAndConsumeQuota } from "./_lib/quota";
+import { callClaudeTool } from "./_lib/anthropic.js";
+import { checkAndConsumeQuota } from "./_lib/quota.js";
 
 const TOOL_NAME = "save_study_material";
 
