@@ -4,19 +4,48 @@ import { Header } from "../components/Header";
 import { HighlightedText } from "../components/HighlightedText";
 import { PhotoImage } from "../components/PhotoImage";
 import { SpeakButton } from "../components/SpeakButton";
-import { deleteLesson, getLesson } from "../db/db";
+import { deleteLesson, getLesson, saveSimplifiedText } from "../db/db";
+import { useProfile } from "../ProfileContext";
+import { simplifyLesson } from "../services/simplifyLesson";
 import type { Lesson } from "../types";
 
 export default function LeconPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile } = useProfile();
   const [lesson, setLesson] = useState<Lesson | undefined>();
+  const [simplifying, setSimplifying] = useState(false);
+  const [simplifyError, setSimplifyError] = useState<string | null>(null);
   const xpEarned = (location.state as { xpEarned?: number } | null)?.xpEarned;
+  const dyslexiaMode = profile?.dyslexia_mode ?? false;
 
   useEffect(() => {
     getLesson(id).then(setLesson);
   }, [id]);
+
+  useEffect(() => {
+    if (!lesson || !dyslexiaMode || lesson.simplifiedText) return;
+    let cancelled = false;
+    setSimplifying(true);
+    setSimplifyError(null);
+    simplifyLesson({ lessonTitle: lesson.title, lessonText: lesson.extractedText })
+      .then(async (result) => {
+        await saveSimplifiedText(lesson.id, result.simplifiedText);
+        if (!cancelled) {
+          setLesson((l) => (l ? { ...l, simplifiedText: result.simplifiedText } : l));
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setSimplifyError(e instanceof Error ? e.message : "Erreur inconnue.");
+      })
+      .finally(() => {
+        if (!cancelled) setSimplifying(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lesson?.id, lesson?.simplifiedText, dyslexiaMode]);
 
   async function handleDelete() {
     if (!confirm("Supprimer cette leçon ? Les photos et le quiz associés seront supprimés.")) return;
@@ -25,6 +54,9 @@ export default function LeconPage() {
   }
 
   if (!lesson) return <div className="screen" />;
+
+  const showSimplified = dyslexiaMode && lesson.simplifiedText;
+  const displayedText = showSimplified ? lesson.simplifiedText! : lesson.extractedText;
 
   return (
     <div className="screen">
@@ -40,9 +72,15 @@ export default function LeconPage() {
           ))}
         </div>
 
-        <p className="section-label">Contenu extrait</p>
-        <HighlightedText text={lesson.extractedText} />
-        <SpeakButton text={lesson.extractedText} />
+        <p className="section-label">
+          {showSimplified ? "Version simplifiée" : "Contenu extrait"}
+        </p>
+        {dyslexiaMode && simplifying ? (
+          <p className="hint">✨ Simplification de la leçon en cours...</p>
+        ) : null}
+        {simplifyError ? <p className="hint">{simplifyError}</p> : null}
+        <HighlightedText text={displayedText} />
+        <SpeakButton text={displayedText} />
 
         <button
           className="btn btn-primary btn-block"

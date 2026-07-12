@@ -72,6 +72,7 @@ function rowToLesson(row: any): Lesson {
     title: row.title,
     photoIds: row.photo_paths ?? [],
     extractedText: row.extracted_text,
+    simplifiedText: row.simplified_text ?? null,
     createdAt: new Date(row.created_at).getTime(),
   };
 }
@@ -122,6 +123,14 @@ export async function createLesson(input: {
     .single();
   if (error) throw error;
   return rowToLesson(data);
+}
+
+export async function saveSimplifiedText(id: string, simplifiedText: string): Promise<void> {
+  const { error } = await supabase
+    .from("lessons")
+    .update({ simplified_text: simplifiedText })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export async function deleteLesson(id: string): Promise<void> {

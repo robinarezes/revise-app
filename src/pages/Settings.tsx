@@ -95,8 +95,8 @@ export default function SettingsPage() {
 
         <label className="field-label">Mode dyslexique</label>
         <p className="hint">
-          Police adaptée, espacement augmenté, fond teinté et lecture à voix haute sur les
-          leçons.
+          Texte plus grand et plus espacé, fond teinté, leçons réécrites en version simplifiée
+          par l'IA, et lecture à voix haute.
         </p>
         <div className="toggle-row">
           <span className="card-name">Activer</span>

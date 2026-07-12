@@ -75,31 +75,48 @@ html.dyslexia-mode {
 }
 
 html.dyslexia-mode body {
-  font-family: "OpenDyslexic", "Lexend", -apple-system, sans-serif;
-  font-size: 1.05em;
-  letter-spacing: 0.03em;
-  word-spacing: 0.08em;
+  letter-spacing: 0.02em;
+  word-spacing: 0.06em;
   line-height: 1.7;
 }
 
-html.dyslexia-mode .extracted-text,
+html.dyslexia-mode .extracted-text {
+  font-size: 19px;
+  line-height: 2;
+  letter-spacing: 0.02em;
+}
+
 html.dyslexia-mode .question-text,
-html.dyslexia-mode .flash-card-text,
+html.dyslexia-mode .flash-card-text {
+  font-size: 23px;
+  line-height: 1.9;
+  letter-spacing: 0.02em;
+}
+
 html.dyslexia-mode .chat-bubble,
 html.dyslexia-mode .hint,
 html.dyslexia-mode .subtitle,
-html.dyslexia-mode .mode-btn-subtitle,
-html.dyslexia-mode .card-meta,
-html.dyslexia-mode .explanation,
 html.dyslexia-mode .verdict-feedback {
-  line-height: 1.9;
-  letter-spacing: 0.03em;
+  font-size: 17px;
+  line-height: 1.8;
+  letter-spacing: 0.02em;
 }
 
-/* La barre de navigation reste compacte : pas d'espacement supplémentaire,
+html.dyslexia-mode .mode-btn-subtitle,
+html.dyslexia-mode .card-meta,
+html.dyslexia-mode .explanation {
+  font-size: 15px;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+}
+
+html.dyslexia-mode .section-label {
+  font-size: 15px;
+}
+
+/* La barre de navigation reste compacte : pas de grossissement,
    sinon les libellés débordent de leur emplacement fixe. */
 html.dyslexia-mode .bottom-nav-item {
-  font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
   letter-spacing: normal;
   word-spacing: normal;
   font-size: 10px;

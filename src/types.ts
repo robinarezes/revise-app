@@ -10,6 +10,7 @@ export type Lesson = {
   title: string;
   photoIds: string[];
   extractedText: string;
+  simplifiedText: string | null;
   createdAt: number;
 };
 
