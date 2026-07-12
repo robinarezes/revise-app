@@ -77,10 +77,24 @@ export default function RevisionPage() {
           <button className="btn btn-primary btn-block" onClick={handleGenerate}>
             Générer
           </button>
+          <button
+            className="mode-btn"
+            onClick={() => navigate(`/revision/${lesson.id}/demander`)}
+          >
+            <p className="mode-btn-title">💬 Demander</p>
+            <p className="mode-btn-subtitle">Pose librement des questions sur cette leçon</p>
+          </button>
         </div>
       ) : (
         <div className="content-center">
           <p className="title-md">Choisis un mode de révision</p>
+          <button
+            className="mode-btn"
+            onClick={() => navigate(`/revision/${lesson.id}/demander`)}
+          >
+            <p className="mode-btn-title">💬 Demander</p>
+            <p className="mode-btn-subtitle">Pose librement des questions sur cette leçon</p>
+          </button>
           <button className="mode-btn" onClick={() => navigate(`/revision/${lesson.id}/apprendre`)}>
             <p className="mode-btn-title">📖 Leçon</p>
             <p className="mode-btn-subtitle">

@@ -67,7 +67,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `1. "title" : un titre court pour la leçon.\n` +
         `2. "extractedText" : le cours complet, structuré en paragraphes clairs (définitions, ` +
         "explications, exemples, formules si pertinent), comme un vrai cours qu'un professeur " +
-        "donnerait à ses élèves.\n" +
+        "donnerait à ses élèves. Mets en évidence les mots-clés et notions importantes en les " +
+        "entourant de doubles astérisques, par exemple **mot-clé** (comme en Markdown), sans en " +
+        "abuser (quelques mots par paragraphe).\n" +
         `3. "lessonCards" (6 cartes) : des flashcards qui RÉ-EXPLIQUENT la leçon notion par notion, ` +
         "avec un \"concept\" court et une \"explanation\" claire (2 à 4 phrases).\n" +
         `4. "qcm" (8 questions) : des questions à choix multiples avec 4 options et une seule bonne ` +

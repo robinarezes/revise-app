@@ -34,7 +34,9 @@ export async function classifyLesson(params: {
       `Voici une ou plusieurs photos d'une même leçon. ${subjectsHint}\n\n` +
       "Détermine la matière scolaire, un titre court pour cette leçon, et transcris/résume " +
       "fidèlement tout le contenu utile (définitions, formules, dates, notions clés) sous forme " +
-      "de texte structuré qui servira ensuite à générer des questions de révision.",
+      "de texte structuré qui servira ensuite à générer des questions de révision. Mets en " +
+      "évidence les mots-clés et notions importantes en les entourant de doubles astérisques, " +
+      "par exemple **mot-clé** (comme en Markdown), sans en abuser (quelques mots par paragraphe).",
     images,
     tool: {
       name: TOOL_NAME,

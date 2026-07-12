@@ -1039,3 +1039,96 @@ input[type="password"]:focus {
   color: var(--text);
   align-self: flex-start;
 }
+
+/* --- Highlighted keywords in lesson text --- */
+
+.keyword {
+  background: #fff3b0;
+  color: inherit;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+/* --- Chat / Q&A mode --- */
+
+.chat-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.chat-bubble-user {
+  align-self: flex-end;
+  background: var(--primary);
+  color: var(--primary-text);
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble-assistant {
+  align-self: flex-start;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 2px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.chat-input-row input[type="text"] {
+  flex: 1;
+}
+
+.chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* --- Leçons list tab --- */
+
+.lesson-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lesson-row .lesson-card {
+  flex: 1;
+}
+
+.lesson-delete-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
