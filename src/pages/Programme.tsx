@@ -1,23 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
-import { getGrade } from "../grade";
+import { useProfile } from "../ProfileContext";
 import { getCurriculumSubjects } from "../services/curriculum";
 import { colorForSubject, emojiForSubject } from "../theme";
 
 export default function ProgrammePage() {
   const navigate = useNavigate();
-  const grade = getGrade();
+  const { profile } = useProfile();
+  const grade = profile?.grade ?? null;
   const [subjects, setSubjects] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!grade) return;
+    if (!profile?.grade) return;
     setError(null);
-    getCurriculumSubjects(grade)
+    getCurriculumSubjects(profile.grade, profile.lv1, profile.lv2)
       .then((r) => setSubjects(r.subjects))
       .catch((e) => setError(e instanceof Error ? e.message : "Erreur inconnue."));
-  }, [grade]);
+  }, [profile?.grade, profile?.lv1, profile?.lv2]);
 
   return (
     <div className="screen">

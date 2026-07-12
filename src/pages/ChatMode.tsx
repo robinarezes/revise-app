@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useApiKey } from "../ApiKeyContext";
 import { Header } from "../components/Header";
 import { getLesson } from "../db/db";
 import { askQuestion, type ChatTurn } from "../services/askQuestion";
@@ -8,7 +7,6 @@ import type { Lesson } from "../types";
 
 export default function ChatModePage() {
   const { leconId = "" } = useParams();
-  const { apiKey } = useApiKey();
   const [lesson, setLesson] = useState<Lesson | undefined>();
   const [history, setHistory] = useState<ChatTurn[]>([]);
   const [draft, setDraft] = useState("");
@@ -30,7 +28,6 @@ export default function ChatModePage() {
     setAsking(true);
     try {
       const result = await askQuestion({
-        apiKey,
         lessonTitle: lesson.title,
         lessonText: lesson.extractedText,
         question,

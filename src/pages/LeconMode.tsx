@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { getQuizSet } from "../db/db";
-import { addXp, recordActivity } from "../stats";
+import { useProfile } from "../ProfileContext";
 import type { LessonCard } from "../types";
 
 const XP_FOR_COMPLETING = 5;
@@ -10,6 +10,7 @@ const XP_FOR_COMPLETING = 5;
 export default function LeconModePage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
+  const { addXp, recordActivity } = useProfile();
   const [cards, setCards] = useState<LessonCard[]>([]);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);

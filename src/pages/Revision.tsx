@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useApiKey } from "../ApiKeyContext";
 import { Header } from "../components/Header";
 import { generateQuiz } from "../services/generateQuiz";
 import { getLesson, getQuizSet, saveQuizSet } from "../db/db";
@@ -9,7 +8,6 @@ import type { Lesson, QuizSet } from "../types";
 export default function RevisionPage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
-  const { apiKey } = useApiKey();
   const [lesson, setLesson] = useState<Lesson | undefined>();
   const [quizSet, setQuizSet] = useState<QuizSet | undefined>();
   const [loading, setLoading] = useState(true);
@@ -29,7 +27,6 @@ export default function RevisionPage() {
     setGenerating(true);
     try {
       const result = await generateQuiz({
-        apiKey,
         lessonTitle: lesson.title,
         lessonText: lesson.extractedText,
       });

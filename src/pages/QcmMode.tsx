@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { getQuizSet } from "../db/db";
-import { addXp, recordActivity } from "../stats";
+import { useProfile } from "../ProfileContext";
 import type { QcmQuestion } from "../types";
 
 const XP_PER_CORRECT = 5;
@@ -11,6 +11,7 @@ const MAX_HEARTS = 5;
 export default function QcmPage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
+  const { addXp, recordActivity } = useProfile();
   const [allQuestions, setAllQuestions] = useState<QcmQuestion[]>([]);
   const [queue, setQueue] = useState<QcmQuestion[]>([]);
   const [index, setIndex] = useState(0);

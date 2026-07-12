@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { callClaudeTool } from "./_lib/anthropic.js";
+import { requireUserId } from "./_lib/auth.js";
 import { getCached, setCached } from "./_lib/cache.js";
 import { checkAndConsumeQuota } from "./_lib/quota.js";
 
@@ -10,38 +11,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  const visitorId = req.headers["x-visitor-id"];
-  if (typeof visitorId !== "string" || !visitorId) {
-    return res.status(400).json({ error: "missing_visitor_id" });
+  const userId = await requireUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "unauthorized", message: "Connecte-toi pour continuer." });
   }
 
-  const { grade } = req.body as { grade: string };
+  const { grade, lv1, lv2 } = req.body as { grade: string; lv1?: string; lv2?: string };
   if (!grade) {
     return res.status(400).json({ error: "bad_request", message: "Classe manquante." });
   }
 
-  const cacheKey = `curriculum:subjects:${grade}`;
+  const cacheKey = `curriculum:subjects:${grade}:${lv1 ?? ""}:${lv2 ?? ""}`;
   const cached = await getCached<CurriculumResult>(cacheKey);
   if (cached) {
     return res.status(200).json(cached);
   }
 
-  const quota = await checkAndConsumeQuota(visitorId);
+  const quota = await checkAndConsumeQuota(userId);
   if (!quota.allowed) {
     return res.status(429).json({
       error: "quota_exceeded",
       message:
-        `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain, ou ajoute ta ` +
-        "propre clé API Claude dans Réglages pour un usage illimité.",
+        `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
     });
   }
+
+  const languagesHint =
+    lv1 || lv2
+      ? ` L'élève étudie ${[lv1 && `${lv1} en LV1`, lv2 && `${lv2} en LV2`].filter(Boolean).join(" et ")} : ` +
+        "utilise ces noms de langue précis plutôt que \"Langue Vivante A/B\" génériques."
+      : "";
 
   try {
     const result = await callClaudeTool<CurriculumResult>({
       system: "Tu es un assistant qui connaît précisément le programme scolaire français.",
       userText:
         `Pour un élève de ${grade} (système scolaire français), liste les matières scolaires ` +
-        "principales enseignées à ce niveau, dans un ordre logique.",
+        `principales enseignées à ce niveau, dans un ordre logique.${languagesHint}`,
       tool: {
         name: "save_subjects",
         description: "Enregistre la liste des matières du programme scolaire.",

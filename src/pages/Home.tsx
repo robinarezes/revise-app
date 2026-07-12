@@ -3,17 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
 import { SubjectCard } from "../components/SubjectCard";
 import { getSubjectsWithLessonCounts } from "../db/db";
-import { getStats } from "../stats";
+import { useProfile } from "../ProfileContext";
 import type { Subject } from "../types";
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { profile } = useProfile();
   const [subjects, setSubjects] = useState<(Subject & { lessonCount: number })[] | null>(null);
-  const [stats, setStats] = useState(getStats());
 
   useEffect(() => {
     getSubjectsWithLessonCounts().then(setSubjects);
-    setStats(getStats());
   }, []);
 
   return (
@@ -23,11 +22,11 @@ export default function HomePage() {
         <div className="stat-pills">
           <span className="stat-pill">
             <span className="stat-pill-icon">🔥</span>
-            {stats.streak}
+            {profile?.streak ?? 0}
           </span>
           <span className="stat-pill">
             <span className="stat-pill-icon">⭐</span>
-            {stats.xp}
+            {profile?.xp ?? 0}
           </span>
         </div>
       </div>

@@ -1,10 +1,9 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApiKey } from "../ApiKeyContext";
 import { Header } from "../components/Header";
-import { classifyLesson } from "../services/classifyLesson";
 import { createLesson, findOrCreateSubject, generateId, getSubjects, savePhoto } from "../db/db";
-import { addXp, recordActivity } from "../stats";
+import { useProfile } from "../ProfileContext";
+import { classifyLesson } from "../services/classifyLesson";
 
 const XP_PER_LESSON = 10;
 
@@ -24,7 +23,7 @@ function fileToBase64(file: File): Promise<string> {
 
 export default function CapturePage() {
   const navigate = useNavigate();
-  const { apiKey } = useApiKey();
+  const { addXp, recordActivity } = useProfile();
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +58,6 @@ export default function CapturePage() {
     try {
       const existingSubjects = (await getSubjects()).map((s) => s.name);
       const classification = await classifyLesson({
-        apiKey,
         images: photos.map((p) => ({ base64: p.base64, mediaType: p.file.type || "image/jpeg" })),
         existingSubjects,
       });
@@ -68,8 +66,8 @@ export default function CapturePage() {
       const lessonId = generateId();
       const photoIds: string[] = [];
       for (const p of photos) {
-        await savePhoto(p.id, p.file);
-        photoIds.push(p.id);
+        const path = await savePhoto(lessonId, p.id, p.file);
+        photoIds.push(path);
       }
       const lesson = await createLesson({
         id: lessonId,
@@ -79,8 +77,8 @@ export default function CapturePage() {
         extractedText: classification.extractedText,
       });
 
-      recordActivity();
-      addXp(XP_PER_LESSON);
+      await recordActivity();
+      await addXp(XP_PER_LESSON);
       navigate(`/lecon/${lesson.id}`, { replace: true, state: { xpEarned: XP_PER_LESSON } });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Erreur inconnue.";

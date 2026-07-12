@@ -2,14 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { createLesson, findOrCreateSubject, generateId, saveQuizSet } from "../db/db";
-import { getGrade } from "../grade";
+import { useProfile } from "../ProfileContext";
 import { getCurriculumLesson, getCurriculumTopics } from "../services/curriculum";
 
 export default function ProgrammeMatierePage() {
   const { matiere = "" } = useParams();
   const subject = decodeURIComponent(matiere);
   const navigate = useNavigate();
-  const grade = getGrade();
+  const { profile } = useProfile();
+  const grade = profile?.grade ?? null;
   const [topics, setTopics] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);

@@ -1,11 +1,6 @@
-import { GRADES, setGrade, type Grade } from "../grade";
+import { GRADES, type Grade } from "../grade";
 
-export function GradeSelection({ onChosen }: { onChosen: () => void }) {
-  function handlePick(grade: Grade) {
-    setGrade(grade);
-    onChosen();
-  }
-
+export function GradeSelection({ onChosen }: { onChosen: (grade: Grade) => void }) {
   return (
     <div className="screen">
       <div className="content-center">
@@ -16,7 +11,7 @@ export function GradeSelection({ onChosen }: { onChosen: () => void }) {
         </p>
         <div className="grade-grid">
           {GRADES.map((g) => (
-            <button key={g} className="grade-btn" onClick={() => handlePick(g)}>
+            <button key={g} className="grade-btn" onClick={() => onChosen(g)}>
               {g}
             </button>
           ))}

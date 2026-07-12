@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { getQuizSet } from "../db/db";
-import { addXp, recordActivity } from "../stats";
+import { useProfile } from "../ProfileContext";
 import type { FlashCard } from "../types";
 
 const XP_PER_KNOWN = 2;
@@ -10,6 +10,7 @@ const XP_PER_KNOWN = 2;
 export default function FlashcardsPage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
+  const { addXp, recordActivity } = useProfile();
   const [allCards, setAllCards] = useState<FlashCard[]>([]);
   const [queue, setQueue] = useState<FlashCard[]>([]);
   const [index, setIndex] = useState(0);

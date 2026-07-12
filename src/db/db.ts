@@ -1,3 +1,4 @@
+import { supabase } from "../supabaseClient";
 import type {
   ExerciseQuestion,
   FlashCard,
@@ -8,83 +9,31 @@ import type {
   Subject,
 } from "../types";
 
-const DB_NAME = "revise-db";
-const DB_VERSION = 1;
-const STORES = ["subjects", "lessons", "quizzes", "photos"] as const;
-
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains("subjects")) db.createObjectStore("subjects", { keyPath: "id" });
-      if (!db.objectStoreNames.contains("lessons")) db.createObjectStore("lessons", { keyPath: "id" });
-      if (!db.objectStoreNames.contains("quizzes")) db.createObjectStore("quizzes", { keyPath: "lessonId" });
-      if (!db.objectStoreNames.contains("photos")) db.createObjectStore("photos", { keyPath: "id" });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function getDb(): Promise<IDBDatabase> {
-  if (!dbPromise) dbPromise = openDb();
-  return dbPromise;
-}
-
-type StoreName = (typeof STORES)[number];
-
-async function getAll<T>(storeName: StoreName): Promise<T[]> {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(storeName, "readonly").objectStore(storeName).getAll();
-    request.onsuccess = () => resolve(request.result as T[]);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function getOne<T>(storeName: StoreName, key: string): Promise<T | undefined> {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(storeName, "readonly").objectStore(storeName).get(key);
-    request.onsuccess = () => resolve(request.result as T | undefined);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function put(storeName: StoreName, value: unknown): Promise<void> {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeName, "readwrite");
-    transaction.objectStore(storeName).put(value);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
-}
-
-async function remove(storeName: StoreName, key: string): Promise<void> {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeName, "readwrite");
-    transaction.objectStore(storeName).delete(key);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
-}
-
 export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return crypto.randomUUID();
+}
+
+async function requireUserId(): Promise<string> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error("Non connecté.");
+  return data.user.id;
+}
+
+// --- Subjects ---
+
+function rowToSubject(row: any): Subject {
+  return { id: row.id, name: row.name, createdAt: new Date(row.created_at).getTime() };
 }
 
 export async function getSubjects(): Promise<Subject[]> {
-  const subjects = await getAll<Subject>("subjects");
-  return subjects.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  const { data, error } = await supabase.from("subjects").select("*").order("name");
+  if (error) throw error;
+  return (data ?? []).map(rowToSubject);
 }
 
-export function getSubject(id: string): Promise<Subject | undefined> {
-  return getOne<Subject>("subjects", id);
+export async function getSubject(id: string): Promise<Subject | undefined> {
+  const { data } = await supabase.from("subjects").select("*").eq("id", id).maybeSingle();
+  return data ? rowToSubject(data) : undefined;
 }
 
 export async function getSubjectsWithLessonCounts(): Promise<
@@ -99,29 +48,56 @@ export async function getSubjectsWithLessonCounts(): Promise<
 
 // Case-insensitive match on name; creates a new subject if none exists.
 export async function findOrCreateSubject(name: string): Promise<Subject> {
-  const subjects = await getAll<Subject>("subjects");
   const trimmed = name.trim();
+  const subjects = await getSubjects();
   const existing = subjects.find((s) => s.name.toLowerCase() === trimmed.toLowerCase());
   if (existing) return existing;
 
-  const subject: Subject = { id: generateId(), name: trimmed, createdAt: Date.now() };
-  await put("subjects", subject);
-  return subject;
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from("subjects")
+    .insert({ id: generateId(), user_id: userId, name: trimmed })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToSubject(data);
 }
 
-export function getLessons(): Promise<Lesson[]> {
-  return getAll<Lesson>("lessons");
+// --- Lessons ---
+
+function rowToLesson(row: any): Lesson {
+  return {
+    id: row.id,
+    subjectId: row.subject_id,
+    title: row.title,
+    photoIds: row.photo_paths ?? [],
+    extractedText: row.extracted_text,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+export async function getLessons(): Promise<Lesson[]> {
+  const { data, error } = await supabase
+    .from("lessons")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToLesson);
 }
 
 export async function getLessonsBySubject(subjectId: string): Promise<Lesson[]> {
-  const lessons = await getLessons();
-  return lessons
-    .filter((l) => l.subjectId === subjectId)
-    .sort((a, b) => b.createdAt - a.createdAt);
+  const { data, error } = await supabase
+    .from("lessons")
+    .select("*")
+    .eq("subject_id", subjectId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToLesson);
 }
 
-export function getLesson(id: string): Promise<Lesson | undefined> {
-  return getOne<Lesson>("lessons", id);
+export async function getLesson(id: string): Promise<Lesson | undefined> {
+  const { data } = await supabase.from("lessons").select("*").eq("id", id).maybeSingle();
+  return data ? rowToLesson(data) : undefined;
 }
 
 export async function createLesson(input: {
@@ -131,29 +107,52 @@ export async function createLesson(input: {
   photoIds: string[];
   extractedText: string;
 }): Promise<Lesson> {
-  const lesson: Lesson = {
-    id: input.id,
-    subjectId: input.subjectId,
-    title: input.title,
-    photoIds: input.photoIds,
-    extractedText: input.extractedText,
-    createdAt: Date.now(),
-  };
-  await put("lessons", lesson);
-  return lesson;
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from("lessons")
+    .insert({
+      id: input.id,
+      user_id: userId,
+      subject_id: input.subjectId,
+      title: input.title,
+      extracted_text: input.extractedText,
+      photo_paths: input.photoIds,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToLesson(data);
 }
 
 export async function deleteLesson(id: string): Promise<void> {
   const lesson = await getLesson(id);
-  await remove("lessons", id);
-  await remove("quizzes", id);
-  if (lesson) {
-    await Promise.all(lesson.photoIds.map((photoId) => remove("photos", photoId)));
+  if (lesson && lesson.photoIds.length > 0) {
+    await supabase.storage.from("lesson-photos").remove(lesson.photoIds);
   }
+  const { error } = await supabase.from("lessons").delete().eq("id", id);
+  if (error) throw error;
 }
 
-export function getQuizSet(lessonId: string): Promise<QuizSet | undefined> {
-  return getOne<QuizSet>("quizzes", lessonId);
+// --- Quiz sets ---
+
+function rowToQuizSet(row: any): QuizSet {
+  return {
+    lessonId: row.lesson_id,
+    qcm: row.qcm ?? [],
+    flashcards: row.flashcards ?? [],
+    lessonCards: row.lesson_cards ?? [],
+    exercises: row.exercises ?? [],
+    generatedAt: new Date(row.generated_at).getTime(),
+  };
+}
+
+export async function getQuizSet(lessonId: string): Promise<QuizSet | undefined> {
+  const { data } = await supabase
+    .from("quiz_sets")
+    .select("*")
+    .eq("lesson_id", lessonId)
+    .maybeSingle();
+  return data ? rowToQuizSet(data) : undefined;
 }
 
 export async function saveQuizSet(
@@ -163,23 +162,42 @@ export async function saveQuizSet(
   lessonCards: LessonCard[],
   exercises: ExerciseQuestion[]
 ): Promise<QuizSet> {
-  const quizSet: QuizSet = {
-    lessonId,
-    qcm,
-    flashcards,
-    lessonCards,
-    exercises,
-    generatedAt: Date.now(),
-  };
-  await put("quizzes", quizSet);
-  return quizSet;
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from("quiz_sets")
+    .upsert({
+      lesson_id: lessonId,
+      user_id: userId,
+      qcm,
+      flashcards,
+      lesson_cards: lessonCards,
+      exercises,
+      generated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToQuizSet(data);
 }
 
-export async function savePhoto(id: string, blob: Blob): Promise<void> {
-  await put("photos", { id, blob });
+// --- Photos ---
+
+// Uploads a staged photo to Supabase Storage and returns its storage path
+// (used as the lesson's photoIds entries and as the key for getPhotoBlob).
+export async function savePhoto(lessonId: string, localId: string, blob: Blob): Promise<string> {
+  const userId = await requireUserId();
+  const ext = blob.type.includes("png") ? "png" : "jpg";
+  const path = `${userId}/${lessonId}/${localId}.${ext}`;
+  const { error } = await supabase.storage.from("lesson-photos").upload(path, blob, {
+    contentType: blob.type || "image/jpeg",
+    upsert: true,
+  });
+  if (error) throw error;
+  return path;
 }
 
-export async function getPhotoBlob(id: string): Promise<Blob | undefined> {
-  const record = await getOne<{ id: string; blob: Blob }>("photos", id);
-  return record?.blob;
+export async function getPhotoBlob(path: string): Promise<Blob | undefined> {
+  const { data, error } = await supabase.storage.from("lesson-photos").download(path);
+  if (error) return undefined;
+  return data;
 }

@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
-import { useApiKey } from "../ApiKeyContext";
 import { getQuizSet } from "../db/db";
+import { useProfile } from "../ProfileContext";
 import { correctAnswer, type Correction } from "../services/correctAnswer";
-import { addXp, recordActivity } from "../stats";
 import type { ExerciseQuestion } from "../types";
 
 const XP_BY_VERDICT: Record<Correction["verdict"], number> = {
@@ -22,7 +21,7 @@ const VERDICT_LABEL: Record<Correction["verdict"], string> = {
 export default function ExercicePage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
-  const { apiKey } = useApiKey();
+  const { addXp, recordActivity } = useProfile();
   const [exercises, setExercises] = useState<ExerciseQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState("");
@@ -42,7 +41,6 @@ export default function ExercicePage() {
     setCorrecting(true);
     try {
       const result = await correctAnswer({
-        apiKey,
         question: exercises[index].question,
         idealAnswer: exercises[index].idealAnswer,
         userAnswer: answer,

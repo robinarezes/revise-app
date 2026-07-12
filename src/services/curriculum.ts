@@ -12,10 +12,14 @@ export type CurriculumLesson = {
   exercises: ExerciseQuestion[];
 };
 
-// The curriculum feature always goes through the shared backend (never a
-// personal key), since its whole point is a cache shared across everyone.
-export function getCurriculumSubjects(grade: string): Promise<CurriculumSubjects> {
-  return callBackend<CurriculumSubjects>("/api/curriculum", { grade });
+// The curriculum feature always goes through the shared backend, since its
+// whole point is a cache shared across everyone.
+export function getCurriculumSubjects(
+  grade: string,
+  lv1: string | null,
+  lv2: string | null
+): Promise<CurriculumSubjects> {
+  return callBackend<CurriculumSubjects>("/api/curriculum", { grade, lv1, lv2 });
 }
 
 export function getCurriculumTopics(grade: string, subject: string): Promise<CurriculumTopics> {

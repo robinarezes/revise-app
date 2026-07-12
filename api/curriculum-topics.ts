@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { callClaudeTool } from "./_lib/anthropic.js";
+import { requireUserId } from "./_lib/auth.js";
 import { getCached, setCached } from "./_lib/cache.js";
 import { checkAndConsumeQuota } from "./_lib/quota.js";
 
@@ -10,9 +11,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  const visitorId = req.headers["x-visitor-id"];
-  if (typeof visitorId !== "string" || !visitorId) {
-    return res.status(400).json({ error: "missing_visitor_id" });
+  const userId = await requireUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "unauthorized", message: "Connecte-toi pour continuer." });
   }
 
   const { grade, subject } = req.body as { grade: string; subject: string };
@@ -26,13 +27,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(cached);
   }
 
-  const quota = await checkAndConsumeQuota(visitorId);
+  const quota = await checkAndConsumeQuota(userId);
   if (!quota.allowed) {
     return res.status(429).json({
       error: "quota_exceeded",
       message:
-        `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain, ou ajoute ta ` +
-        "propre clé API Claude dans Réglages pour un usage illimité.",
+        `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
     });
   }
 
