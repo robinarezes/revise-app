@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { useApiKey } from "../ApiKeyContext";
+import { GRADES, getGrade, setGrade, type Grade } from "../grade";
 
 export default function SettingsPage() {
   const { apiKey, setApiKey, clearApiKey } = useApiKey();
   const [draft, setDraft] = useState(apiKey ?? "");
+  const [grade, setGradeState] = useState(getGrade());
+  const [editingGrade, setEditingGrade] = useState(false);
 
   function handleSave() {
     if (!draft.trim()) {
@@ -21,12 +24,36 @@ export default function SettingsPage() {
     setDraft("");
   }
 
+  function handlePickGrade(g: Grade) {
+    setGrade(g);
+    setGradeState(g);
+    setEditingGrade(false);
+  }
+
   return (
     <div className="screen">
       <div className="tab-header">
         <span className="tab-header-title">Réglages</span>
       </div>
       <div className="content">
+        <label className="field-label">Ma classe</label>
+        {editingGrade ? (
+          <div className="grade-grid">
+            {GRADES.map((g) => (
+              <button key={g} className="grade-btn" onClick={() => handlePickGrade(g)}>
+                {g}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="actions-row">
+            <span className="grade-pill">🎓 {grade}</span>
+            <button className="link-btn" onClick={() => setEditingGrade(true)}>
+              Changer
+            </button>
+          </div>
+        )}
+
         <p className="hint">
           L'app est utilisable gratuitement, sans rien configurer : tu as droit à quelques
           leçons par jour. Pour un usage illimité, tu peux ajouter ta propre clé API Claude

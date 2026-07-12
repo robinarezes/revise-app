@@ -966,3 +966,76 @@ input[type="password"]:focus {
 .bottom-nav-icon {
   font-size: 22px;
 }
+
+/* --- Grade selection --- */
+
+.grade-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.grade-btn {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--border);
+}
+
+.grade-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+/* --- Programme (curriculum) --- */
+
+.topic-card {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  gap: 12px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--border);
+}
+
+.topic-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.grade-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  align-self: flex-start;
+}

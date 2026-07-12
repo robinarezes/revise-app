@@ -1,16 +1,7 @@
-import { Redis } from "@upstash/redis";
+import { getRedis } from "./redis";
 
 const DAILY_QUOTA = Number(process.env.DAILY_QUOTA ?? 5);
 const KEY_TTL_SECONDS = 60 * 60 * 26; // a little over a day, as a safety margin
-
-let redis: Redis | null = null;
-
-// Uses UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN, auto-injected by
-// Vercel when a Redis (Upstash) database is connected to the project.
-function getRedis(): Redis {
-  if (!redis) redis = Redis.fromEnv();
-  return redis;
-}
 
 function todayKey(visitorId: string): string {
   const day = new Date().toISOString().slice(0, 10);
