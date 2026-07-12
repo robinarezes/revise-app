@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { SpeakButton } from "../components/SpeakButton";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import type { LessonCard } from "../types";
@@ -97,6 +98,8 @@ export default function LeconModePage() {
             </div>
           </div>
         </div>
+
+        <SpeakButton text={flipped ? card.explanation : card.concept} />
 
         <div className="spacer" />
 

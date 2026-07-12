@@ -64,3 +64,43 @@ button {
 a {
   color: inherit;
 }
+
+/* --- Mode dyslexique --- */
+
+html.dyslexia-mode {
+  --background: #fbf3e3;
+  --surface: #fffaf0;
+  --surface-alt: #f5ead2;
+  --border: #e6d9b8;
+}
+
+html.dyslexia-mode body {
+  font-family: "OpenDyslexic", "Lexend", -apple-system, sans-serif;
+  font-size: 1.05em;
+  letter-spacing: 0.03em;
+  word-spacing: 0.08em;
+  line-height: 1.7;
+}
+
+html.dyslexia-mode .extracted-text,
+html.dyslexia-mode .question-text,
+html.dyslexia-mode .flash-card-text,
+html.dyslexia-mode .chat-bubble,
+html.dyslexia-mode .hint,
+html.dyslexia-mode .subtitle,
+html.dyslexia-mode .mode-btn-subtitle,
+html.dyslexia-mode .card-meta,
+html.dyslexia-mode .explanation,
+html.dyslexia-mode .verdict-feedback {
+  line-height: 1.9;
+  letter-spacing: 0.03em;
+}
+
+/* La barre de navigation reste compacte : pas d'espacement supplémentaire,
+   sinon les libellés débordent de leur emplacement fixe. */
+html.dyslexia-mode .bottom-nav-item {
+  font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+  letter-spacing: normal;
+  word-spacing: normal;
+  font-size: 10px;
+}

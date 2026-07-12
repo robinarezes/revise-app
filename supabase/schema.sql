@@ -26,6 +26,7 @@ create table public.profiles (
   xp integer not null default 0,
   streak integer not null default 0,
   last_active_date date,
+  dyslexia_mode boolean not null default false,
   created_at timestamptz not null default now()
 );
 

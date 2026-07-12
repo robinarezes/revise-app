@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../AuthContext";
 import { BottomNav } from "../components/BottomNav";
+import { ToggleSwitch } from "../components/ToggleSwitch";
 import { GRADES, type Grade } from "../grade";
 import { LANGUAGES, type Language } from "../languages";
 import { useProfile } from "../ProfileContext";
@@ -91,6 +92,19 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
+
+        <label className="field-label">Mode dyslexique</label>
+        <p className="hint">
+          Police adaptée, espacement augmenté, fond teinté et lecture à voix haute sur les
+          leçons.
+        </p>
+        <div className="toggle-row">
+          <span className="card-name">Activer</span>
+          <ToggleSwitch
+            checked={profile?.dyslexia_mode ?? false}
+            onChange={(value) => updateProfile({ dyslexia_mode: value })}
+          />
+        </div>
 
         <button className="link-btn-danger" onClick={handleSignOut}>
           Se déconnecter

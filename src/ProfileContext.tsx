@@ -12,12 +12,15 @@ export type Profile = {
   xp: number;
   streak: number;
   last_active_date: string | null;
+  dyslexia_mode: boolean;
 };
 
 type ProfileContextValue = {
   profile: Profile | null;
   loading: boolean;
-  updateProfile: (patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2">>) => Promise<void>;
+  updateProfile: (
+    patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2" | "dyslexia_mode">>
+  ) => Promise<void>;
   addXp: (amount: number) => Promise<void>;
   recordActivity: () => Promise<void>;
 };
@@ -34,6 +37,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dyslexia-mode", profile?.dyslexia_mode ?? false);
+  }, [profile?.dyslexia_mode]);
 
   useEffect(() => {
     if (!session) {

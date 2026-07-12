@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { HighlightedText } from "../components/HighlightedText";
 import { PhotoImage } from "../components/PhotoImage";
+import { SpeakButton } from "../components/SpeakButton";
 import { deleteLesson, getLesson } from "../db/db";
 import type { Lesson } from "../types";
 
@@ -41,6 +42,7 @@ export default function LeconPage() {
 
         <p className="section-label">Contenu extrait</p>
         <HighlightedText text={lesson.extractedText} />
+        <SpeakButton text={lesson.extractedText} />
 
         <button
           className="btn btn-primary btn-block"
