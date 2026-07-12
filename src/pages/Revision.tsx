@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { NotFoundScreen } from "../components/NotFoundScreen";
 import { generateQuiz } from "../services/generateQuiz";
 import { getLesson, getQuizSet, saveQuizSet } from "../db/db";
 import type { Lesson, QuizSet } from "../types";
@@ -46,7 +47,15 @@ export default function RevisionPage() {
     }
   }
 
-  if (loading || !lesson) return <div className="screen" />;
+  if (loading) return <div className="screen" />;
+  if (!lesson) {
+    return (
+      <NotFoundScreen
+        title="Réviser"
+        message="Cette leçon n'existe plus ou a été supprimée."
+      />
+    );
+  }
 
   if (generating) {
     return (

@@ -1,4 +1,4 @@
-import { HashRouter, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import AuthPage from "./pages/Auth";
 import CapturePage from "./pages/Capture";
@@ -20,13 +20,36 @@ import SettingsPage from "./pages/Settings";
 import StatsPage from "./pages/Stats";
 import { ProfileProvider, useProfile } from "./ProfileContext";
 
+function ProfileErrorScreen() {
+  const { signOut } = useAuth();
+  return (
+    <div className="screen">
+      <div className="content-center">
+        <span className="celebrate-emoji">😕</span>
+        <p className="title-md">Impossible de charger ton profil</p>
+        <p className="subtitle">
+          Vérifie ta connexion internet et réessaie. Si le problème persiste, déconnecte-toi puis
+          reconnecte-toi.
+        </p>
+        <button className="btn btn-primary btn-block" onClick={() => window.location.reload()}>
+          Réessayer
+        </button>
+        <button className="link-btn" onClick={() => signOut()}>
+          Se déconnecter
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppGate() {
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
 
   if (authLoading) return <div className="screen" />;
   if (!session) return <AuthPage />;
-  if (profileLoading || !profile) return <div className="screen" />;
+  if (profileLoading) return <div className="screen" />;
+  if (!profile) return <ProfileErrorScreen />;
   if (!profile.grade || !profile.lv1 || !profile.lv2) return <Onboarding />;
 
   return (
@@ -48,6 +71,7 @@ function AppGate() {
         <Route path="/revision/:leconId/flashcards" element={<FlashcardsPage />} />
         <Route path="/revision/:leconId/exercice" element={<ExercicePage />} />
         <Route path="/revision/:leconId/demander" element={<ChatModePage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
   );

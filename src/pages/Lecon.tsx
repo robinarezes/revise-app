@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { HighlightedText } from "../components/HighlightedText";
+import { NotFoundScreen } from "../components/NotFoundScreen";
 import { PhotoImage } from "../components/PhotoImage";
 import { SpeakButton } from "../components/SpeakButton";
 import { deleteLesson, getLesson, saveSimplifiedText } from "../db/db";
@@ -15,13 +16,17 @@ export default function LeconPage() {
   const location = useLocation();
   const { profile } = useProfile();
   const [lesson, setLesson] = useState<Lesson | undefined>();
+  const [notFound, setNotFound] = useState(false);
   const [simplifying, setSimplifying] = useState(false);
   const [simplifyError, setSimplifyError] = useState<string | null>(null);
   const xpEarned = (location.state as { xpEarned?: number } | null)?.xpEarned;
   const dyslexiaMode = profile?.dyslexia_mode ?? false;
 
   useEffect(() => {
-    getLesson(id).then(setLesson);
+    getLesson(id).then((l) => {
+      setLesson(l);
+      if (!l) setNotFound(true);
+    });
   }, [id]);
 
   useEffect(() => {
@@ -53,6 +58,14 @@ export default function LeconPage() {
     navigate(-1);
   }
 
+  if (notFound) {
+    return (
+      <NotFoundScreen
+        title="Leçon"
+        message="Cette leçon n'existe plus ou a été supprimée."
+      />
+    );
+  }
   if (!lesson) return <div className="screen" />;
 
   const showSimplified = dyslexiaMode && lesson.simplifiedText;

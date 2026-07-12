@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { NotFoundScreen } from "../components/NotFoundScreen";
 import { SpeakButton } from "../components/SpeakButton";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
@@ -16,9 +17,11 @@ export default function LeconModePage() {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getQuizSet(leconId).then((quizSet) => {
+      setLoading(false);
       if (!quizSet) return;
       setCards(quizSet.lessonCards);
     });
@@ -41,7 +44,10 @@ export default function LeconModePage() {
     setFinished(false);
   }
 
-  if (cards.length === 0) return <div className="screen" />;
+  if (loading) return <div className="screen" />;
+  if (cards.length === 0) {
+    return <NotFoundScreen title="Leçon" message="Cette leçon n'existe plus ou a été supprimée." />;
+  }
 
   if (finished) {
     return (

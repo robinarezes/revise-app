@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { correctAnswer, type Correction } from "../services/correctAnswer";
@@ -29,9 +30,11 @@ export default function ExercicePage() {
   const [correction, setCorrection] = useState<Correction | null>(null);
   const [results, setResults] = useState<Correction["verdict"][]>([]);
   const [finished, setFinished] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getQuizSet(leconId).then((quizSet) => {
+      setLoading(false);
       if (!quizSet) return;
       setExercises(quizSet.exercises);
     });
@@ -75,7 +78,12 @@ export default function ExercicePage() {
     setFinished(false);
   }
 
-  if (exercises.length === 0) return <div className="screen" />;
+  if (loading) return <div className="screen" />;
+  if (exercises.length === 0) {
+    return (
+      <NotFoundScreen title="Exercice" message="Ces exercices n'existent plus ou ont été supprimés." />
+    );
+  }
 
   if (finished) {
     const correctCount = results.filter((v) => v === "correct").length;

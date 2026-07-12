@@ -54,8 +54,21 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       .select("*")
       .eq("id", session.user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        setProfile(data as Profile | null);
+      .then(async ({ data }) => {
+        if (data) {
+          setProfile(data as Profile);
+          setLoading(false);
+          return;
+        }
+        // Compte sans ligne de profil (le trigger de création n'a pas
+        // tourné, ou la ligne a été supprimée) : on la recrée pour éviter
+        // de rester bloqué indéfiniment sur un écran vide.
+        const { data: created } = await supabase
+          .from("profiles")
+          .insert({ id: session.user.id })
+          .select()
+          .single();
+        setProfile((created as Profile | null) ?? null);
         setLoading(false);
       });
   }, [session]);

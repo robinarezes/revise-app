@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getLesson } from "../db/db";
 import { askQuestion, type ChatTurn } from "../services/askQuestion";
 import type { Lesson } from "../types";
@@ -11,10 +12,14 @@ export default function ChatModePage() {
   const [history, setHistory] = useState<ChatTurn[]>([]);
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getLesson(leconId).then(setLesson);
+    getLesson(leconId).then((l) => {
+      setLesson(l);
+      if (!l) setNotFound(true);
+    });
   }, [leconId]);
 
   useEffect(() => {
@@ -42,6 +47,9 @@ export default function ChatModePage() {
     }
   }
 
+  if (notFound) {
+    return <NotFoundScreen title="Question" message="Cette leçon n'existe plus ou a été supprimée." />;
+  }
   if (!lesson) return <div className="screen" />;
 
   return (

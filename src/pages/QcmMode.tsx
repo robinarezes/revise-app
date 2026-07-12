@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import type { QcmQuestion } from "../types";
@@ -19,9 +20,11 @@ export default function QcmPage() {
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongQuestions, setWrongQuestions] = useState<QcmQuestion[]>([]);
   const [finished, setFinished] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getQuizSet(leconId).then((quizSet) => {
+      setLoading(false);
       if (!quizSet) return;
       setAllQuestions(quizSet.qcm);
       resetRun(quizSet.qcm);
@@ -59,7 +62,10 @@ export default function QcmPage() {
     }
   }
 
-  if (queue.length === 0) return <div className="screen" />;
+  if (loading) return <div className="screen" />;
+  if (queue.length === 0) {
+    return <NotFoundScreen title="QCM" message="Ce quiz n'existe plus ou a été supprimé." />;
+  }
 
   if (finished) {
     const xpEarned = correctCount * XP_PER_CORRECT;

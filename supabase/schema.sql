@@ -38,6 +38,9 @@ create policy "profiles_select_own" on public.profiles
 create policy "profiles_update_own" on public.profiles
   for update using (auth.uid() = id);
 
+create policy "profiles_insert_own" on public.profiles
+  for insert with check (auth.uid() = id);
+
 create function public.handle_new_user()
 returns trigger as $$
 begin

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import type { FlashCard } from "../types";
@@ -18,9 +19,11 @@ export default function FlashcardsPage() {
   const [knownCount, setKnownCount] = useState(0);
   const [toRevisit, setToRevisit] = useState<FlashCard[]>([]);
   const [finished, setFinished] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getQuizSet(leconId).then((quizSet) => {
+      setLoading(false);
       if (!quizSet) return;
       setAllCards(quizSet.flashcards);
       resetRun(quizSet.flashcards);
@@ -53,7 +56,12 @@ export default function FlashcardsPage() {
     }
   }
 
-  if (queue.length === 0) return <div className="screen" />;
+  if (loading) return <div className="screen" />;
+  if (queue.length === 0) {
+    return (
+      <NotFoundScreen title="Flashcards" message="Ces flashcards n'existent plus ou ont été supprimées." />
+    );
+  }
 
   if (finished) {
     const xpEarned = knownCount * XP_PER_KNOWN;
