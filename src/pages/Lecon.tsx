@@ -49,6 +49,10 @@ export default function LeconPage() {
           Réviser cette leçon
         </button>
 
+        <button className="btn btn-secondary btn-block" onClick={() => navigate("/")}>
+          🏠 Retour à l'accueil
+        </button>
+
         <button className="link-btn-danger" onClick={handleDelete}>
           Supprimer la leçon
         </button>

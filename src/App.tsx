@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./AuthContext";
 import AuthPage from "./pages/Auth";
 import CapturePage from "./pages/Capture";
 import ChatModePage from "./pages/ChatMode";
+import DailyQuizPage from "./pages/DailyQuiz";
 import ExercicePage from "./pages/ExerciceMode";
 import FlashcardsPage from "./pages/FlashcardsMode";
 import HomePage from "./pages/Home";
@@ -32,6 +33,7 @@ function AppGate() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/quiz-du-jour/:subject" element={<DailyQuizPage />} />
         <Route path="/lecons" element={<LeconsPage />} />
         <Route path="/programme" element={<ProgrammePage />} />
         <Route path="/programme/:matiere" element={<ProgrammeMatierePage />} />

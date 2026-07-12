@@ -31,6 +31,26 @@ export default function HomePage() {
         </div>
       </div>
 
+      <div className="content" style={{ paddingBottom: 0 }}>
+        <p className="section-label">Quiz du jour</p>
+        <div className="daily-quiz-row">
+          <button
+            className="daily-quiz-card"
+            onClick={() => navigate(`/quiz-du-jour/${encodeURIComponent("Mathématiques")}`)}
+          >
+            <span className="daily-quiz-icon">🧮</span>
+            <span className="daily-quiz-label">Maths</span>
+          </button>
+          <button
+            className="daily-quiz-card"
+            onClick={() => navigate(`/quiz-du-jour/${encodeURIComponent("Français")}`)}
+          >
+            <span className="daily-quiz-icon">📖</span>
+            <span className="daily-quiz-label">Français</span>
+          </button>
+        </div>
+      </div>
+
       {subjects && subjects.length === 0 ? (
         <div className="empty-state">
           <div className="mascot">📚</div>

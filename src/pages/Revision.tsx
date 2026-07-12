@@ -81,6 +81,9 @@ export default function RevisionPage() {
             <p className="mode-btn-title">💬 Demander</p>
             <p className="mode-btn-subtitle">Pose librement des questions sur cette leçon</p>
           </button>
+          <button className="link-btn" onClick={() => navigate("/")}>
+            🏠 Retour à l'accueil
+          </button>
         </div>
       ) : (
         <div className="content-center">
@@ -120,6 +123,9 @@ export default function RevisionPage() {
           </button>
           <button className="link-btn" onClick={handleGenerate}>
             Régénérer un nouveau contenu
+          </button>
+          <button className="link-btn" onClick={() => navigate("/")}>
+            🏠 Retour à l'accueil
           </button>
         </div>
       )}

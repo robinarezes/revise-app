@@ -1117,6 +1117,44 @@ input[type="password"]:focus {
   flex: 1;
 }
 
+/* --- Daily quiz widget --- */
+
+.daily-quiz-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.daily-quiz-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--border);
+}
+
+.daily-quiz-card:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.daily-quiz-icon {
+  font-size: 28px;
+}
+
+.daily-quiz-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .lesson-delete-btn {
   width: 36px;
   height: 36px;
