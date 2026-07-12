@@ -7,10 +7,11 @@ const CACHE_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 // lesson on Pythagore) be reused by everyone else instead of re-billing the
 // API for the same content.
 export async function getCached<T>(key: string): Promise<T | null> {
-  const value = await getRedis().get<T>(key);
-  return value ?? null;
+  const raw = await getRedis().get(key);
+  if (!raw) return null;
+  return JSON.parse(raw) as T;
 }
 
 export async function setCached<T>(key: string, value: T): Promise<void> {
-  await getRedis().set(key, value, { ex: CACHE_TTL_SECONDS });
+  await getRedis().set(key, JSON.stringify(value), "EX", CACHE_TTL_SECONDS);
 }
