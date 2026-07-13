@@ -33,18 +33,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const { data: codeRow } = await supabase
         .from("premium_codes")
-        .select("code, redeemed_by")
+        .select("code")
         .ilike("code", escaped)
         .maybeSingle();
 
-      if (!codeRow || (codeRow as { redeemed_by: string | null }).redeemed_by) {
-        return res.status(400).json({ error: "invalid_code", message: "Code invalide ou déjà utilisé." });
+      if (!codeRow) {
+        return res.status(400).json({ error: "invalid_code", message: "Code invalide." });
+      }
+      const realCode = (codeRow as { code: string }).code;
+
+      // Un même code peut être partagé entre plusieurs personnes : seule
+      // une deuxième utilisation par le même compte est bloquée.
+      const { data: existing } = await supabase
+        .from("premium_code_redemptions")
+        .select("code")
+        .eq("code", realCode)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (existing) {
+        return res.status(400).json({ error: "invalid_code", message: "Tu as déjà utilisé ce code." });
       }
 
-      await supabase
-        .from("premium_codes")
-        .update({ redeemed_by: userId, redeemed_at: new Date().toISOString() })
-        .eq("code", (codeRow as { code: string }).code);
+      await supabase.from("premium_code_redemptions").insert({ code: realCode, user_id: userId });
       await supabase.from("profiles").update({ subscription_status: "active" }).eq("id", userId);
 
       return res.status(200).json({ ok: true });

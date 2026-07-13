@@ -148,7 +148,7 @@ drop policy if exists "daily_quiz_results_all_own" on public.daily_quiz_results;
 create policy "daily_quiz_results_all_own" on public.daily_quiz_results
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- 4ter. Codes premium à usage unique ----------------------------------------
+-- 4ter. Codes premium, partageables entre plusieurs personnes --------------
 
 create table public.premium_codes (
   code text primary key,
@@ -160,6 +160,17 @@ create table public.premium_codes (
 alter table public.premium_codes enable row level security;
 
 -- Aucune policy : accessible uniquement depuis le serveur (service_role).
+
+create table public.premium_code_redemptions (
+  code text not null references public.premium_codes(code) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  redeemed_at timestamptz not null default now(),
+  primary key (code, user_id)
+);
+
+alter table public.premium_code_redemptions enable row level security;
+
+-- Aucune policy ici non plus : service_role uniquement.
 
 -- 5. Stockage des photos de leçons ------------------------------------------
 
