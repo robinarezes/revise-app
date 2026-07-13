@@ -5,6 +5,7 @@ import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { clearProgress, loadProgress, saveProgress } from "../services/quizProgress";
+import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
 
 const XP_PER_CORRECT = 5;
@@ -71,8 +72,10 @@ export default function QcmPage() {
     if (optionIndex === question.correctIndex) {
       setCorrectCount((c) => c + 1);
       addXp(XP_PER_CORRECT);
+      playCorrect();
     } else {
       setWrongQuestions((w) => [...w, question]);
+      playWrong();
     }
   }
 
@@ -84,6 +87,7 @@ export default function QcmPage() {
       recordActivity();
       setFinished(true);
       clearProgress(progressKey);
+      playComplete();
     }
   }
 

@@ -6,6 +6,7 @@ import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { correctAnswer, type Correction } from "../services/correctAnswer";
+import { playCorrect, playWrong } from "../services/sound";
 import type { ExerciseQuestion } from "../types";
 
 const XP_BY_VERDICT: Record<Correction["verdict"], number> = {
@@ -52,6 +53,8 @@ export default function ExercicePage() {
       setCorrection(result);
       setResults((r) => [...r, result.verdict]);
       addXp(XP_BY_VERDICT[result.verdict]);
+      if (result.verdict === "incorrect") playWrong();
+      else playCorrect();
     } catch (e) {
       if (e instanceof BackendError && e.code === "quota_exceeded") {
         navigate("/premium?raison=quota");
@@ -136,6 +139,7 @@ export default function ExercicePage() {
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="Écris ta réponse ici..."
           disabled={correction !== null || correcting}
+          autoCapitalize="sentences"
           rows={5}
         />
 

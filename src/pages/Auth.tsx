@@ -150,18 +150,26 @@ export default function AuthPage() {
         </div>
 
         <input
-          type="text"
+          type={identifierType === "email" ? "email" : "text"}
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           placeholder={identifierType === "email" ? "Email" : "Pseudo"}
           autoCapitalize="off"
           autoCorrect="off"
+          autoComplete={identifierType === "email" ? "email" : "username"}
+          inputMode={identifierType === "email" ? "email" : "text"}
+          enterKeyHint="next"
         />
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Mot de passe"
+          autoComplete={mode === "signup" ? "new-password" : "current-password"}
+          enterKeyHint="done"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit();
+          }}
         />
 
         {error ? <p className="hint" style={{ color: "var(--danger)" }}>{error}</p> : null}

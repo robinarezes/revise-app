@@ -6,6 +6,7 @@ import { getDailyQuizResult, saveDailyQuizResult, type DailyQuizResultRow } from
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { getDailyQuiz } from "../services/dailyQuiz";
+import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
 
 const BASE_POINTS = 10;
@@ -86,6 +87,9 @@ export default function DailyQuizPage() {
     if (correct) {
       setCorrectCount((c) => c + 1);
       addXp(points);
+      playCorrect();
+    } else {
+      playWrong();
     }
     setTotalPoints((p) => p + points);
   }
@@ -101,6 +105,7 @@ export default function DailyQuizPage() {
         () => {}
       );
       setFinished(true);
+      playComplete();
     }
   }
 

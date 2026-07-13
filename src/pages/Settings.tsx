@@ -7,6 +7,7 @@ import { GRADES, type Grade } from "../grade";
 import { LANGUAGES, type Language } from "../languages";
 import type { DyslexiaFont, DyslexiaSize, DyslexiaTint } from "../ProfileContext";
 import { useProfile } from "../ProfileContext";
+import { isSoundEnabled, setSoundEnabled } from "../services/sound";
 import { openBillingPortal, redeemPremiumCode } from "../services/subscription";
 import { TTS_VOICES } from "../services/tts";
 
@@ -74,6 +75,7 @@ export default function SettingsPage() {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [prefsError, setPrefsError] = useState<string | null>(null);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
   useEffect(() => {
     setUsername(profile?.username ?? "");
@@ -174,8 +176,15 @@ export default function SettingsPage() {
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSaveUsername();
+            }}
             placeholder="Ton pseudo"
             maxLength={30}
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoComplete="username"
+            enterKeyHint="done"
             style={{ flex: 1 }}
           />
           <button className="link-btn" onClick={handleSaveUsername}>
@@ -294,7 +303,21 @@ export default function SettingsPage() {
           </>
         )}
 
-        <label className="field-label">Mode dyslexique</label>
+        <label className="field-label">Sons</label>
+        <div className="toggle-row">
+          <span className="card-name">Effets sonores (bonnes/mauvaises réponses)</span>
+          <ToggleSwitch
+            checked={soundOn}
+            onChange={(value) => {
+              setSoundEnabled(value);
+              setSoundOn(value);
+            }}
+          />
+        </div>
+
+        <label className="field-label" style={{ marginTop: 12 }}>
+          Mode dyslexique
+        </label>
         <p className="hint">
           Texte plus grand et plus espacé, fond teinté, leçons réécrites en version simplifiée
           par l'IA, et lecture à voix haute.

@@ -5,6 +5,7 @@ import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { clearProgress, loadProgress, saveProgress } from "../services/quizProgress";
+import { playComplete, playCorrect, playWrong } from "../services/sound";
 import type { FlashCard } from "../types";
 
 const XP_PER_KNOWN = 2;
@@ -68,8 +69,10 @@ export default function FlashcardsPage() {
     if (known) {
       setKnownCount((c) => c + 1);
       addXp(XP_PER_KNOWN);
+      playCorrect();
     } else {
       setToRevisit((r) => [...r, card]);
+      playWrong();
     }
     if (index + 1 < queue.length) {
       setIndex(index + 1);
@@ -78,6 +81,7 @@ export default function FlashcardsPage() {
       recordActivity();
       setFinished(true);
       clearProgress(progressKey);
+      playComplete();
     }
   }
 

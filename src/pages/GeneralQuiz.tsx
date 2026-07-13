@@ -5,6 +5,7 @@ import { Header } from "../components/Header";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { getGeneralQuiz } from "../services/generalQuiz";
+import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
 
 const XP_PER_CORRECT = 4;
@@ -56,6 +57,9 @@ export default function GeneralQuizPage() {
     if (optionIndex === questions[index].correctIndex) {
       setCorrectCount((c) => c + 1);
       addXp(XP_PER_CORRECT);
+      playCorrect();
+    } else {
+      playWrong();
     }
   }
 
@@ -70,6 +74,7 @@ export default function GeneralQuizPage() {
         addXp(PERFECT_BONUS);
       }
       setFinished(true);
+      playComplete();
     }
   }
 

@@ -90,6 +90,8 @@ export default function ChatModePage() {
             }}
             placeholder="Écris ta question..."
             disabled={asking}
+            enterKeyHint="send"
+            autoCapitalize="sentences"
           />
           <button
             className="btn btn-primary"
