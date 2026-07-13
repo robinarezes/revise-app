@@ -111,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ url: session.url });
     }
 
-    return res.status(400).json({ error: "bad_request", message: "Action inconnue." });
+    return res.status(400).json({ error: "bad_request", message: "Action inconnue. Recharge la page (une mise à jour a peut-être eu lieu) puis réessaie." });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Erreur inconnue.";
     return res.status(502).json({ error: "stripe_error", message });
