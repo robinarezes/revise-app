@@ -567,7 +567,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           totals.set(row.user_id, (totals.get(row.user_id) ?? 0) + row.xp_earned);
         }
         if (totals.size === 0) {
-          return res.status(200).json({ ranking: [], me: null });
+          return res.status(200).json({ ranking: [], me: { points: 0, rank: null, needsUsername: false } });
         }
 
         const { data: profiles, error: profilesError } = await service
@@ -579,13 +579,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ((profiles ?? []) as { id: string; username: string | null }[]).map((p) => [p.id, p.username])
         );
 
+        // Un pseudo est requis pour apparaître dans le classement : sinon
+        // tout le monde s'affiche sous le même nom générique "Élève", ce qui
+        // ressemble à des faux comptes plutôt qu'à de vrais joueurs.
         const ranking = Array.from(totals.entries())
           .map(([id, points]) => ({ userId: id, username: usernameById.get(id) ?? null, points }))
+          .filter((entry) => !!entry.username)
           .sort((a, b) => b.points - a.points)
           .slice(0, 50)
           .map((entry, i) => ({ ...entry, rank: i + 1 }));
 
-        const me = ranking.find((r) => r.userId === userId) ?? null;
+        const myPoints = totals.get(userId) ?? 0;
+        const myEntry = ranking.find((r) => r.userId === userId);
+        const me = {
+          points: myPoints,
+          rank: myEntry?.rank ?? null,
+          needsUsername: myPoints > 0 && !usernameById.get(userId),
+        };
         // Anonymize other players in the response: only reveal userId for
         // the requester's own row (front-end needs it to highlight "you").
         const publicRanking = ranking.map((r) => ({

@@ -2,14 +2,14 @@ import { callBackend } from "./backendClient";
 
 export type LeaderboardEntry = {
   rank: number;
-  username: string | null;
+  username: string;
   points: number;
   isMe: boolean;
 };
 
 export type LeaderboardResponse = {
   ranking: LeaderboardEntry[];
-  me: { rank: number; username: string | null; points: number } | null;
+  me: { rank: number | null; points: number; needsUsername: boolean };
 };
 
 export function getLeaderboard(): Promise<LeaderboardResponse> {

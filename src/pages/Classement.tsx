@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
 import { getLeaderboard, type LeaderboardResponse } from "../services/leaderboard";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 export default function ClassementPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,6 +25,18 @@ export default function ClassementPage() {
         <p className="hint">
           Les points viennent du Quiz du jour : plus tu réponds vite et juste, plus tu en gagnes.
         </p>
+
+        {data?.me.needsUsername ? (
+          <div className="verdict-box verdict-partiel">
+            <p className="verdict-label">Tu as {data.me.points} points, mais pas de pseudo</p>
+            <p className="verdict-feedback">
+              Choisis un pseudo dans Réglages pour apparaître dans le classement.
+            </p>
+            <button className="link-btn" onClick={() => navigate("/settings")} style={{ padding: 0 }}>
+              Aller dans Réglages
+            </button>
+          </div>
+        ) : null}
 
         {error ? (
           <p className="hint">{error}</p>
@@ -50,7 +64,7 @@ export default function ClassementPage() {
                 </span>
                 <div className="card-text">
                   <p className="card-name">
-                    {entry.username ?? "Élève"} {entry.isMe ? "· toi" : ""}
+                    {entry.username} {entry.isMe ? "· toi" : ""}
                   </p>
                 </div>
                 <span className="grade-pill">⭐ {entry.points}</span>
