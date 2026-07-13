@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../AuthContext";
 import { Header } from "../components/Header";
 import { useProfile } from "../ProfileContext";
+import { BackendError } from "../services/backendClient";
 import { getDailyQuiz } from "../services/dailyQuiz";
 import type { QcmQuestion } from "../types";
 
@@ -11,9 +13,11 @@ export default function DailyQuizPage() {
   const { subject = "" } = useParams();
   const subjectName = decodeURIComponent(subject);
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   const { profile, addXp, recordActivity } = useProfile();
   const [questions, setQuestions] = useState<QcmQuestion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
@@ -23,7 +27,10 @@ export default function DailyQuizPage() {
     if (!profile?.grade) return;
     getDailyQuiz(profile.grade, subjectName)
       .then((r) => setQuestions(r.qcm))
-      .catch((e) => setError(e instanceof Error ? e.message : "Erreur inconnue."));
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "Erreur inconnue.");
+        setNeedsReauth(e instanceof BackendError && e.code === "unauthenticated");
+      });
   }, [profile?.grade, subjectName]);
 
   function handleSelect(optionIndex: number) {
@@ -50,8 +57,17 @@ export default function DailyQuizPage() {
     return (
       <div className="screen">
         <Header title={`Quiz du jour · ${subjectName}`} />
-        <div className="empty-state">
+        <div className="content-center">
           <p className="hint">{error}</p>
+          {needsReauth ? (
+            <button className="btn btn-primary btn-block" onClick={() => signOut()}>
+              Se connecter
+            </button>
+          ) : (
+            <button className="btn btn-secondary btn-block" onClick={() => navigate("/")}>
+              🏠 Retour à l'accueil
+            </button>
+          )}
         </div>
       </div>
     );
