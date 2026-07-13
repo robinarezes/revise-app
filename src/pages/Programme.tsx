@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
 import { useProfile } from "../ProfileContext";
 import { getCurriculumSubjects } from "../services/curriculum";
-import { colorForSubject, emojiForSubject } from "../theme";
+import { colorForSubject, emojiForSubject, gradientForSubject } from "../theme";
 
 export default function ProgrammePage() {
   const navigate = useNavigate();
@@ -44,11 +44,9 @@ export default function ProgrammePage() {
                 key={subject}
                 className="subject-card"
                 onClick={() => navigate(`/programme/${encodeURIComponent(subject)}`)}
+                style={{ borderLeftColor: colorForSubject(subject) }}
               >
-                <div
-                  className="subject-icon"
-                  style={{ background: `${colorForSubject(subject)}26` }}
-                >
+                <div className="subject-icon" style={{ background: gradientForSubject(subject) }}>
                   {emojiForSubject(subject, subject)}
                 </div>
                 <div className="card-text">

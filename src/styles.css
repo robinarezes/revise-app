@@ -259,7 +259,6 @@
   gap: 12px;
 }
 
-.subject-card,
 .lesson-card {
   display: flex;
   flex-direction: column;
@@ -269,6 +268,29 @@
   padding: 14px;
   gap: 10px;
   box-shadow: 0 3px 0 var(--border);
+}
+
+.subject-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-left: 5px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--border);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+
+.subject-card:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--border);
 }
 
 .lesson-card-top {
@@ -316,14 +338,15 @@
 }
 
 .subject-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 26px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .card-text {
@@ -1667,5 +1690,14 @@ input[type="password"]:focus {
   .option:not(:disabled):hover,
   .daily-quiz-card:hover {
     border-color: var(--primary);
+  }
+
+  .subject-card {
+    cursor: pointer;
+  }
+
+  .subject-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 0 var(--border);
   }
 }
