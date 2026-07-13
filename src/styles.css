@@ -308,6 +308,10 @@
   margin: 0;
 }
 
+.lesson-card .card-name {
+  font-size: 19px;
+}
+
 .card-meta {
   font-size: 13px;
   color: var(--text-muted);

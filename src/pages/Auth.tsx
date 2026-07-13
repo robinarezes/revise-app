@@ -73,13 +73,22 @@ export default function AuthPage() {
       return;
     }
     if (mode === "signup") {
-      // "Confirm email" est désactivé sur ce projet : la session est déjà
-      // active à ce stade. On ne montre l'écran "vérifie ta boîte mail" que
-      // si ça change un jour (ou pour un compte "pseudo", qui n'a de toute
-      // façon pas de vraie adresse à vérifier).
+      // "Confirm email" doit être désactivé côté Supabase pour que la
+      // session soit active immédiatement après l'inscription.
       const { data } = await supabase.auth.getSession();
-      if (!data.session && identifierType === "email") {
-        setConfirmSent(true);
+      if (!data.session) {
+        if (identifierType === "email") {
+          setConfirmSent(true);
+        } else {
+          // Un compte "pseudo" n'a pas de vraie adresse à confirmer : si on
+          // arrive ici, le compte est créé mais bloqué côté Supabase
+          // ("Confirm email" doit être désactivé dans le dashboard).
+          setError(
+            "Ton compte a été créé mais ne peut pas être activé automatiquement. " +
+              "Réessaie de te connecter dans quelques minutes, ou préviens-moi si ça persiste."
+          );
+          setMode("login");
+        }
       }
     }
   }
