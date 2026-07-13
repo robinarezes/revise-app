@@ -4,14 +4,23 @@ import { Header } from "../components/Header";
 import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { clearProgress, loadProgress, saveProgress } from "../services/quizProgress";
 import type { FlashCard } from "../types";
 
 const XP_PER_KNOWN = 2;
+
+type SavedProgress = {
+  queue: FlashCard[];
+  index: number;
+  knownCount: number;
+  toRevisit: FlashCard[];
+};
 
 export default function FlashcardsPage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
   const { addXp, recordActivity } = useProfile();
+  const progressKey = `flashcards:${leconId}`;
   const [allCards, setAllCards] = useState<FlashCard[]>([]);
   const [queue, setQueue] = useState<FlashCard[]>([]);
   const [index, setIndex] = useState(0);
@@ -26,9 +35,24 @@ export default function FlashcardsPage() {
       setLoading(false);
       if (!quizSet) return;
       setAllCards(quizSet.flashcards);
-      resetRun(quizSet.flashcards);
+      const saved = loadProgress<SavedProgress>(progressKey);
+      if (saved && saved.queue.length > 0) {
+        setQueue(saved.queue);
+        setIndex(saved.index);
+        setKnownCount(saved.knownCount);
+        setToRevisit(saved.toRevisit);
+      } else {
+        resetRun(quizSet.flashcards);
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leconId]);
+
+  useEffect(() => {
+    if (queue.length === 0 || finished) return;
+    saveProgress<SavedProgress>(progressKey, { queue, index, knownCount, toRevisit });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue, index, knownCount, toRevisit, finished]);
 
   function resetRun(cards: FlashCard[]) {
     setQueue(cards);
@@ -53,6 +77,7 @@ export default function FlashcardsPage() {
     } else {
       recordActivity();
       setFinished(true);
+      clearProgress(progressKey);
     }
   }
 

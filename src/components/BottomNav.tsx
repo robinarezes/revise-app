@@ -5,6 +5,7 @@ const TABS = [
   { path: "/programme", icon: "📘", label: "Programme" },
   { path: "/lecons", icon: "📑", label: "Leçons" },
   { path: "/stats", icon: "📊", label: "Stats" },
+  { path: "/classement", icon: "🏆", label: "Rang" },
   { path: "/settings", icon: "⚙️", label: "Réglages" },
 ];
 

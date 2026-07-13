@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { Header } from "../components/Header";
@@ -8,7 +8,23 @@ import { BackendError } from "../services/backendClient";
 import { getDailyQuiz } from "../services/dailyQuiz";
 import type { QcmQuestion } from "../types";
 
-const XP_PER_CORRECT = 3;
+const BASE_POINTS = 10;
+const MAX_SPEED_BONUS = 10;
+
+// Barème : réponse juste = 10 points + un bonus de vitesse qui descend de 1
+// point par seconde écoulée sur cette question (jusqu'à 0). Pas de minuteur
+// qui coupe la partie : on peut toujours répondre, juste avec moins de bonus.
+function pointsForAnswer(correct: boolean, secondsTaken: number): number {
+  if (!correct) return 0;
+  const bonus = Math.max(0, MAX_SPEED_BONUS - Math.floor(secondsTaken));
+  return BASE_POINTS + bonus;
+}
+
+function formatElapsed(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -27,7 +43,11 @@ export default function DailyQuizPage() {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const quizStartRef = useRef<number | null>(null);
+  const questionStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     getDailyQuizResult(subjectName, todayStr()).then((r) => setAlreadyDone(r ?? null));
@@ -43,13 +63,31 @@ export default function DailyQuizPage() {
       });
   }, [profile?.grade, subjectName, alreadyDone]);
 
+  // Chrono qui compte le temps total de la partie, sans limite.
+  useEffect(() => {
+    if (!questions || finished) return;
+    if (quizStartRef.current === null) quizStartRef.current = Date.now();
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - (quizStartRef.current ?? Date.now())) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [questions, finished]);
+
+  useEffect(() => {
+    questionStartRef.current = Date.now();
+  }, [index]);
+
   function handleSelect(optionIndex: number) {
     if (selected !== null || !questions) return;
     setSelected(optionIndex);
-    if (optionIndex === questions[index].correctIndex) {
+    const secondsTaken = (Date.now() - (questionStartRef.current ?? Date.now())) / 1000;
+    const correct = optionIndex === questions[index].correctIndex;
+    const points = pointsForAnswer(correct, secondsTaken);
+    if (correct) {
       setCorrectCount((c) => c + 1);
-      addXp(XP_PER_CORRECT);
+      addXp(points);
     }
+    setTotalPoints((p) => p + points);
   }
 
   function handleNext() {
@@ -59,8 +97,7 @@ export default function DailyQuizPage() {
       setSelected(null);
     } else {
       recordActivity();
-      const xpEarned = correctCount * XP_PER_CORRECT;
-      saveDailyQuizResult(subjectName, todayStr(), correctCount, questions.length, xpEarned).catch(
+      saveDailyQuizResult(subjectName, todayStr(), correctCount, questions.length, totalPoints).catch(
         () => {}
       );
       setFinished(true);
@@ -127,7 +164,6 @@ export default function DailyQuizPage() {
   }
 
   if (finished) {
-    const xpEarned = correctCount * XP_PER_CORRECT;
     const ratio = correctCount / questions.length;
     return (
       <div className="screen">
@@ -137,8 +173,9 @@ export default function DailyQuizPage() {
           <p className="score-text">
             {correctCount} / {questions.length}
           </p>
-          <p className="score-label">bonnes réponses</p>
-          <span className="xp-earned">⭐ +{xpEarned} XP</span>
+          <p className="score-label">bonnes réponses en {formatElapsed(elapsed)}</p>
+          <span className="xp-earned">🏆 +{totalPoints} points</span>
+          <p className="hint">Retrouve ton rang dans l'onglet Classement.</p>
 
           <button className="btn btn-primary btn-block" onClick={() => navigate("/")}>
             🏠 Retour à l'accueil
@@ -153,11 +190,12 @@ export default function DailyQuizPage() {
 
   return (
     <div className="screen">
-      <Header title={`Quiz du jour · ${subjectName}`} />
+      <Header title={`Quiz du jour · ${subjectName}`} showBack={false} />
       <div className="quiz-progress-row">
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
+        <span className="hearts">⏱ {formatElapsed(elapsed)}</span>
       </div>
       <div className="content">
         <p className="question-text">{question.question}</p>

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { callClaudeTool, type ImageContent } from "./_lib/anthropic.js";
 import { requireUserId } from "./_lib/auth.js";
@@ -16,6 +17,13 @@ type ChatTurn = { question: string; answer: string };
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+// Claude sometimes reaches for LaTeX ($x^2$, \frac{}{}) or stray symbols the
+// app doesn't render, showing up literally in the UI. Appended to prompts
+// that produce text shown to students.
+const NO_LATEX =
+  " N'utilise jamais de notation LaTeX ni de signes dollar ($) pour les formules : écris-les en texte " +
+  "normal (ex: \"x²\", \"racine carrée de x\", \"a/b\"), sans code ni caractères spéciaux superflus.";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -101,7 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await callClaudeTool({
           system:
             "Tu es un assistant qui aide un élève à organiser ses cours photographiés. " +
-            "Tu lis fidèlement le contenu des photos (OCR) et tu le résumes sans rien inventer.",
+            "Tu lis fidèlement le contenu des photos (OCR) et tu le résumes sans rien inventer." +
+            NO_LATEX,
           userText:
             `Voici une ou plusieurs photos d'une même leçon. ${subjectsHint}\n\n` +
             "Détermine la matière scolaire, un titre court pour cette leçon, et transcris/résume " +
@@ -188,6 +197,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!lessonTitle || !lessonText) {
           return res.status(400).json({ error: "bad_request", message: "Leçon manquante." });
         }
+        // Deux personnes qui révisent la même leçon (même texte, souvent
+        // depuis Programme) partagent le même QCM/flashcards/exercices au
+        // lieu de re-générer (et re-facturer) à chaque fois.
+        const quizCacheKey = `quiz:${createHash("sha256").update(lessonText).digest("hex")}`;
+        const cachedQuiz = await getCached<unknown>(quizCacheKey);
+        if (cachedQuiz) return res.status(200).json(cachedQuiz);
+
         const quota = await checkAndConsumeQuota(userId);
         if (!quota.allowed) {
           return res.status(429).json({
@@ -202,7 +218,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await callClaudeTool({
           system:
             "Tu es un assistant pédagogique qui aide un élève à comprendre et apprendre une leçon " +
-            "par cœur, en créant du contenu de révision clair, précis et fidèle au contenu fourni.",
+            "par cœur, en créant du contenu de révision clair, précis et fidèle au contenu fourni." +
+            NO_LATEX,
           userText:
             `Leçon : "${lessonTitle}"\n\nContenu de la leçon :\n${lessonText}\n\n` +
             "Génère quatre types de contenu de révision à partir de cette leçon :\n\n" +
@@ -281,6 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           },
           maxTokens: 8192,
         });
+        await setCached(quizCacheKey, result);
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
         return res.status(200).json(result);
       }
@@ -304,7 +322,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             "vocabulaire simple et concret, pas de phrases imbriquées. Structure le texte avec des " +
             "tirets ou puces (une idée par ligne) plutôt que des paragraphes denses. Garde tout le " +
             "contenu important de la leçon, ne raccourcis pas le fond, seulement la forme. " +
-            "Mets en évidence les mots-clés essentiels avec **le mot** (comme en Markdown).",
+            "Mets en évidence les mots-clés essentiels avec **le mot** (comme en Markdown)." +
+            NO_LATEX,
           userText: `Leçon : "${lessonTitle}"\n\nContenu original :\n${lessonText}`,
           tool: {
             name: "save_simplified_lesson",
@@ -395,7 +414,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await callClaudeTool({
           system:
             "Tu es un professeur qui prépare un petit quiz quotidien de révision, sur des notions " +
-            "de base, pour un élève.",
+            "de base, pour un élève." +
+            NO_LATEX,
           userText:
             `Génère un mini quiz quotidien de 5 questions à choix multiples en ${subject}, pour un ` +
             `élève de ${grade} (programme scolaire français), portant sur des notions de base et ` +
@@ -451,7 +471,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await callClaudeTool({
           system:
             "Tu es un professeur qui prépare un quiz de révision varié pour un élève, afin de tester " +
-            "ses connaissances générales dans une matière.",
+            "ses connaissances générales dans une matière." +
+            NO_LATEX,
           userText:
             `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
             "(programme scolaire français), couvrant des notions variées de cette matière à ce niveau " +
@@ -532,6 +553,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.setHeader("Content-Type", "audio/mpeg");
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
         return res.status(200).send(audioBuffer);
+      }
+
+      case "leaderboard": {
+        const service = getServiceClient();
+        const { data: results, error: resultsError } = await service
+          .from("daily_quiz_results")
+          .select("user_id, xp_earned");
+        if (resultsError) throw resultsError;
+
+        const totals = new Map<string, number>();
+        for (const row of (results ?? []) as { user_id: string; xp_earned: number }[]) {
+          totals.set(row.user_id, (totals.get(row.user_id) ?? 0) + row.xp_earned);
+        }
+        if (totals.size === 0) {
+          return res.status(200).json({ ranking: [], me: null });
+        }
+
+        const { data: profiles, error: profilesError } = await service
+          .from("profiles")
+          .select("id, username")
+          .in("id", Array.from(totals.keys()));
+        if (profilesError) throw profilesError;
+        const usernameById = new Map(
+          ((profiles ?? []) as { id: string; username: string | null }[]).map((p) => [p.id, p.username])
+        );
+
+        const ranking = Array.from(totals.entries())
+          .map(([id, points]) => ({ userId: id, username: usernameById.get(id) ?? null, points }))
+          .sort((a, b) => b.points - a.points)
+          .slice(0, 50)
+          .map((entry, i) => ({ ...entry, rank: i + 1 }));
+
+        const me = ranking.find((r) => r.userId === userId) ?? null;
+        // Anonymize other players in the response: only reveal userId for
+        // the requester's own row (front-end needs it to highlight "you").
+        const publicRanking = ranking.map((r) => ({
+          rank: r.rank,
+          username: r.username,
+          points: r.points,
+          isMe: r.userId === userId,
+        }));
+        return res.status(200).json({ ranking: publicRanking, me });
       }
 
       default:

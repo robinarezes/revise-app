@@ -7,6 +7,13 @@ import { checkAndConsumeQuota } from "./_lib/quota.js";
 // Merges the subjects/topics/lesson curriculum endpoints into one function
 // (see api/ai.ts for why: staying under the hobby-plan function count).
 
+// L'EPS n'a pas sa place dans une appli de révision par texte/QCM : filtré
+// pour le CP, où le programme généré par l'IA a tendance à l'inclure.
+function filterSubjects(subjects: string[], grade: string): string[] {
+  if (grade !== "CP") return subjects;
+  return subjects.filter((s) => !/physique|sportive|\beps\b/i.test(s));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
@@ -28,7 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const cacheKey = `curriculum:subjects:${grade}:${lv1 ?? ""}:${lv2 ?? ""}`;
         const cached = await getCached<{ subjects: string[] }>(cacheKey);
-        if (cached) return res.status(200).json(cached);
+        if (cached) {
+          return res.status(200).json({ subjects: filterSubjects(cached.subjects, grade) });
+        }
 
         const quota = await checkAndConsumeQuota(userId);
         if (!quota.allowed) {
@@ -62,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         await setCached(cacheKey, result);
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
-        return res.status(200).json(result);
+        return res.status(200).json({ subjects: filterSubjects(result.subjects, grade) });
       }
 
       case "topics": {
@@ -156,7 +165,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "entourant de doubles astérisques, par exemple **mot-clé** (comme en Markdown), sans en " +
               "abuser (quelques mots par paragraphe). Reste fidèle au niveau scolaire demandé, sans être " +
               "ni trop simple ni trop avancé. Réponds uniquement avec le texte du cours lui-même, sans " +
-              "titre ni phrase d'introduction du type \"Voici le cours\".",
+              "titre ni phrase d'introduction du type \"Voici le cours\". N'utilise jamais de notation " +
+              "LaTeX ni de signes dollar ($) pour les formules : écris-les en texte normal (ex: \"x²\", " +
+              "\"racine carrée de x\", \"a/b\"), sans code ni caractères spéciaux superflus.",
             maxTokens: 3072,
           })) {
             full += delta;

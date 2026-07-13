@@ -1,28 +1,35 @@
+import { lazy, Suspense } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import AuthPage from "./pages/Auth";
-import CapturePage from "./pages/Capture";
-import ChatModePage from "./pages/ChatMode";
-import DailyQuizPage from "./pages/DailyQuiz";
-import DiagramModePage from "./pages/DiagramMode";
-import ExercicePage from "./pages/ExerciceMode";
-import FlashcardsPage from "./pages/FlashcardsMode";
-import GeneralQuizPage from "./pages/GeneralQuiz";
-import GeneralQuizSubjectsPage from "./pages/GeneralQuizSubjects";
-import HomePage from "./pages/Home";
-import LeconPage from "./pages/Lecon";
-import LeconModePage from "./pages/LeconMode";
-import LeconsPage from "./pages/Lecons";
-import MatierePage from "./pages/Matiere";
 import { Onboarding } from "./pages/Onboarding";
-import PremiumPage from "./pages/Premium";
-import ProgrammePage from "./pages/Programme";
-import ProgrammeMatierePage from "./pages/ProgrammeMatiere";
-import QcmPage from "./pages/QcmMode";
-import RevisionPage from "./pages/Revision";
-import SettingsPage from "./pages/Settings";
-import StatsPage from "./pages/Stats";
 import { ProfileProvider, useProfile } from "./ProfileContext";
+
+// Chaque page est chargée à la demande (au lieu d'un seul gros bundle
+// initial) : le premier chargement du site ne télécharge que ce dont
+// l'écran affiché a besoin, les autres pages arrivent en arrière-plan
+// dès qu'on y navigue.
+const HomePage = lazy(() => import("./pages/Home"));
+const DailyQuizPage = lazy(() => import("./pages/DailyQuiz"));
+const GeneralQuizSubjectsPage = lazy(() => import("./pages/GeneralQuizSubjects"));
+const GeneralQuizPage = lazy(() => import("./pages/GeneralQuiz"));
+const PremiumPage = lazy(() => import("./pages/Premium"));
+const LeconsPage = lazy(() => import("./pages/Lecons"));
+const ProgrammePage = lazy(() => import("./pages/Programme"));
+const ProgrammeMatierePage = lazy(() => import("./pages/ProgrammeMatiere"));
+const StatsPage = lazy(() => import("./pages/Stats"));
+const ClassementPage = lazy(() => import("./pages/Classement"));
+const SettingsPage = lazy(() => import("./pages/Settings"));
+const CapturePage = lazy(() => import("./pages/Capture"));
+const MatierePage = lazy(() => import("./pages/Matiere"));
+const LeconPage = lazy(() => import("./pages/Lecon"));
+const RevisionPage = lazy(() => import("./pages/Revision"));
+const LeconModePage = lazy(() => import("./pages/LeconMode"));
+const QcmPage = lazy(() => import("./pages/QcmMode"));
+const FlashcardsPage = lazy(() => import("./pages/FlashcardsMode"));
+const ExercicePage = lazy(() => import("./pages/ExerciceMode"));
+const ChatModePage = lazy(() => import("./pages/ChatMode"));
+const DiagramModePage = lazy(() => import("./pages/DiagramMode"));
 
 function ProfileErrorScreen() {
   const { signOut } = useAuth();
@@ -58,29 +65,32 @@ function AppGate() {
 
   return (
     <HashRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/quiz-du-jour/:subject" element={<DailyQuizPage />} />
-        <Route path="/quiz-general" element={<GeneralQuizSubjectsPage />} />
-        <Route path="/quiz-general/:subject" element={<GeneralQuizPage />} />
-        <Route path="/premium" element={<PremiumPage />} />
-        <Route path="/lecons" element={<LeconsPage />} />
-        <Route path="/programme" element={<ProgrammePage />} />
-        <Route path="/programme/:matiere" element={<ProgrammeMatierePage />} />
-        <Route path="/stats" element={<StatsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/capture" element={<CapturePage />} />
-        <Route path="/matiere/:id" element={<MatierePage />} />
-        <Route path="/lecon/:id" element={<LeconPage />} />
-        <Route path="/revision/:leconId" element={<RevisionPage />} />
-        <Route path="/revision/:leconId/apprendre" element={<LeconModePage />} />
-        <Route path="/revision/:leconId/qcm" element={<QcmPage />} />
-        <Route path="/revision/:leconId/flashcards" element={<FlashcardsPage />} />
-        <Route path="/revision/:leconId/exercice" element={<ExercicePage />} />
-        <Route path="/revision/:leconId/demander" element={<ChatModePage />} />
-        <Route path="/revision/:leconId/schema" element={<DiagramModePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<div className="screen" />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/quiz-du-jour/:subject" element={<DailyQuizPage />} />
+          <Route path="/quiz-general" element={<GeneralQuizSubjectsPage />} />
+          <Route path="/quiz-general/:subject" element={<GeneralQuizPage />} />
+          <Route path="/premium" element={<PremiumPage />} />
+          <Route path="/lecons" element={<LeconsPage />} />
+          <Route path="/programme" element={<ProgrammePage />} />
+          <Route path="/programme/:matiere" element={<ProgrammeMatierePage />} />
+          <Route path="/stats" element={<StatsPage />} />
+          <Route path="/classement" element={<ClassementPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/capture" element={<CapturePage />} />
+          <Route path="/matiere/:id" element={<MatierePage />} />
+          <Route path="/lecon/:id" element={<LeconPage />} />
+          <Route path="/revision/:leconId" element={<RevisionPage />} />
+          <Route path="/revision/:leconId/apprendre" element={<LeconModePage />} />
+          <Route path="/revision/:leconId/qcm" element={<QcmPage />} />
+          <Route path="/revision/:leconId/flashcards" element={<FlashcardsPage />} />
+          <Route path="/revision/:leconId/exercice" element={<ExercicePage />} />
+          <Route path="/revision/:leconId/demander" element={<ChatModePage />} />
+          <Route path="/revision/:leconId/schema" element={<DiagramModePage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </HashRouter>
   );
 }

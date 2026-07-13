@@ -4,15 +4,24 @@ import { Header } from "../components/Header";
 import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { clearProgress, loadProgress, saveProgress } from "../services/quizProgress";
 import type { QcmQuestion } from "../types";
 
 const XP_PER_CORRECT = 5;
 const MAX_HEARTS = 5;
 
+type SavedProgress = {
+  queue: QcmQuestion[];
+  index: number;
+  correctCount: number;
+  wrongQuestions: QcmQuestion[];
+};
+
 export default function QcmPage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
   const { addXp, recordActivity } = useProfile();
+  const progressKey = `qcm:${leconId}`;
   const [allQuestions, setAllQuestions] = useState<QcmQuestion[]>([]);
   const [queue, setQueue] = useState<QcmQuestion[]>([]);
   const [index, setIndex] = useState(0);
@@ -27,9 +36,24 @@ export default function QcmPage() {
       setLoading(false);
       if (!quizSet) return;
       setAllQuestions(quizSet.qcm);
-      resetRun(quizSet.qcm);
+      const saved = loadProgress<SavedProgress>(progressKey);
+      if (saved && saved.queue.length > 0) {
+        setQueue(saved.queue);
+        setIndex(saved.index);
+        setCorrectCount(saved.correctCount);
+        setWrongQuestions(saved.wrongQuestions);
+      } else {
+        resetRun(quizSet.qcm);
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leconId]);
+
+  useEffect(() => {
+    if (queue.length === 0 || finished) return;
+    saveProgress<SavedProgress>(progressKey, { queue, index, correctCount, wrongQuestions });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue, index, correctCount, wrongQuestions, finished]);
 
   function resetRun(questions: QcmQuestion[]) {
     setQueue(questions);
@@ -59,6 +83,7 @@ export default function QcmPage() {
     } else {
       recordActivity();
       setFinished(true);
+      clearProgress(progressKey);
     }
   }
 
