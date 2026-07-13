@@ -4,5 +4,5 @@ import { callBackend } from "./backendClient";
 export type GeneralQuiz = { qcm: QcmQuestion[] };
 
 export function getGeneralQuiz(grade: string, subject: string): Promise<GeneralQuiz> {
-  return callBackend<GeneralQuiz>("/api/general-quiz", { grade, subject });
+  return callBackend<GeneralQuiz>("/api/ai", { action: "general-quiz", grade, subject });
 }

@@ -11,5 +11,5 @@ export function classifyLesson(params: {
   images: ImageContent[];
   existingSubjects: string[];
 }): Promise<ClassificationResult> {
-  return callBackend<ClassificationResult>("/api/classify", params);
+  return callBackend<ClassificationResult>("/api/ai", { action: "classify", ...params });
 }

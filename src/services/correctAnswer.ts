@@ -12,5 +12,5 @@ export function correctAnswer(params: {
   idealAnswer: string;
   userAnswer: string;
 }): Promise<Correction> {
-  return callBackend<Correction>("/api/correct", params);
+  return callBackend<Correction>("/api/ai", { action: "correct", ...params });
 }

@@ -6,5 +6,5 @@ export function simplifyLesson(params: {
   lessonTitle: string;
   lessonText: string;
 }): Promise<SimplifyResult> {
-  return callBackend<SimplifyResult>("/api/simplify", params);
+  return callBackend<SimplifyResult>("/api/ai", { action: "simplify", ...params });
 }

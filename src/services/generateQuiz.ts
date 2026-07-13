@@ -12,5 +12,5 @@ export function generateQuiz(params: {
   lessonTitle: string;
   lessonText: string;
 }): Promise<QuizGenerationResult> {
-  return callBackend<QuizGenerationResult>("/api/quiz", params);
+  return callBackend<QuizGenerationResult>("/api/ai", { action: "quiz", ...params });
 }

@@ -19,11 +19,11 @@ export function getCurriculumSubjects(
   lv1: string | null,
   lv2: string | null
 ): Promise<CurriculumSubjects> {
-  return callBackend<CurriculumSubjects>("/api/curriculum", { grade, lv1, lv2 });
+  return callBackend<CurriculumSubjects>("/api/curriculum", { action: "subjects", grade, lv1, lv2 });
 }
 
 export function getCurriculumTopics(grade: string, subject: string): Promise<CurriculumTopics> {
-  return callBackend<CurriculumTopics>("/api/curriculum-topics", { grade, subject });
+  return callBackend<CurriculumTopics>("/api/curriculum", { action: "topics", grade, subject });
 }
 
 export function getCurriculumLesson(
@@ -31,5 +31,5 @@ export function getCurriculumLesson(
   subject: string,
   topic: string
 ): Promise<CurriculumLesson> {
-  return callBackend<CurriculumLesson>("/api/curriculum-lesson", { grade, subject, topic });
+  return callBackend<CurriculumLesson>("/api/curriculum", { action: "lesson", grade, subject, topic });
 }

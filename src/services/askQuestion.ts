@@ -9,5 +9,5 @@ export function askQuestion(params: {
   question: string;
   history: ChatTurn[];
 }): Promise<AskResult> {
-  return callBackend<AskResult>("/api/ask", params);
+  return callBackend<AskResult>("/api/ai", { action: "ask", ...params });
 }
