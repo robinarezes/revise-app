@@ -16,6 +16,8 @@ export type Profile = {
   lv2: Language | null;
   xp: number;
   streak: number;
+  longest_streak: number;
+  streak_freezes: number;
   last_active_date: string | null;
   dyslexia_mode: boolean;
   dyslexia_font: DyslexiaFont;
@@ -134,18 +136,46 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (!session || !profile) return;
     const today = todayStr(0);
     let newStreak = profile.streak;
+    let newFreezes = profile.streak_freezes;
+    let usedFreeze = false;
     if (profile.last_active_date === today) {
       return;
     } else if (profile.last_active_date === todayStr(-1)) {
       newStreak += 1;
+    } else if (profile.last_active_date === todayStr(-2) && profile.streak_freezes > 0 && profile.streak > 0) {
+      // Un jour manqué : un gel de série protège le compteur au lieu de le
+      // remettre à zéro, comme un joker.
+      newFreezes -= 1;
+      usedFreeze = true;
     } else {
       newStreak = 1;
     }
+    // Un gel se regagne tous les 7 jours de série (max 3 en stock), pour
+    // récompenser la régularité sans rendre le joker illimité.
+    if (!usedFreeze && newStreak > 0 && newStreak % 7 === 0 && newFreezes < 3) {
+      newFreezes += 1;
+    }
+    const newLongest = Math.max(profile.longest_streak, newStreak);
     await supabase
       .from("profiles")
-      .update({ streak: newStreak, last_active_date: today })
+      .update({
+        streak: newStreak,
+        streak_freezes: newFreezes,
+        longest_streak: newLongest,
+        last_active_date: today,
+      })
       .eq("id", session.user.id);
-    setProfile((p) => (p ? { ...p, streak: newStreak, last_active_date: today } : p));
+    setProfile((p) =>
+      p
+        ? {
+            ...p,
+            streak: newStreak,
+            streak_freezes: newFreezes,
+            longest_streak: newLongest,
+            last_active_date: today,
+          }
+        : p
+    );
   }
 
   async function addXp(amount: number) {

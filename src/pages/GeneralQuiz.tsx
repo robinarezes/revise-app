@@ -4,7 +4,9 @@ import { useAuth } from "../AuthContext";
 import { Header } from "../components/Header";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
+import { triggerConfetti } from "../services/confetti";
 import { getGeneralQuiz } from "../services/generalQuiz";
+import { getPersonalBest, reportScore } from "../services/personalBest";
 import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
 
@@ -24,6 +26,8 @@ export default function GeneralQuizPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [isNewBest, setIsNewBest] = useState(false);
+  const personalBest = getPersonalBest(subjectName);
 
   const loadQuiz = useCallback(() => {
     if (!profile?.grade) return;
@@ -34,6 +38,7 @@ export default function GeneralQuizPage() {
     setSelected(null);
     setCorrectCount(0);
     setFinished(false);
+    setIsNewBest(false);
     getGeneralQuiz(profile.grade, subjectName)
       .then((r) => setQuestions(r.qcm))
       .catch((e) => {
@@ -75,6 +80,10 @@ export default function GeneralQuizPage() {
       }
       setFinished(true);
       playComplete();
+      if (reportScore(subjectName, correctCount)) {
+        setIsNewBest(true);
+        triggerConfetti();
+      }
     }
   }
 
@@ -119,13 +128,20 @@ export default function GeneralQuizPage() {
         <Header title="Résultat" />
         <div className="content-center">
           <span className="celebrate-emoji">
-            {perfect ? "🏆" : ratio >= 0.5 ? "👍" : "💪"}
+            {isNewBest ? "🏆" : perfect ? "🏆" : ratio >= 0.5 ? "👍" : "💪"}
           </span>
           <p className="score-text">
             {correctCount} / {questions.length}
           </p>
           <p className="score-label">bonnes réponses</p>
           <span className="xp-earned">⭐ +{xpEarned} XP{perfect ? " (score parfait !)" : ""}</span>
+          {isNewBest ? (
+            <p className="hint" style={{ color: "var(--success)", fontWeight: 800 }}>
+              🎉 Nouveau record personnel !
+            </p>
+          ) : (
+            <p className="hint">Ton record : {personalBest} / {questions.length}</p>
+          )}
 
           <button className="btn btn-primary btn-block" onClick={loadQuiz}>
             🔄 Rejouer (encore des points !)

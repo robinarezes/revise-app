@@ -4,6 +4,7 @@ import { Header } from "../components/Header";
 import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { triggerConfetti } from "../services/confetti";
 import { clearProgress, loadProgress, saveProgress } from "../services/quizProgress";
 import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
@@ -88,6 +89,7 @@ export default function QcmPage() {
       setFinished(true);
       clearProgress(progressKey);
       playComplete();
+      if (wrongQuestions.length === 0) triggerConfetti();
     }
   }
 

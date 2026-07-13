@@ -5,7 +5,9 @@ import { Header } from "../components/Header";
 import { getDailyQuizResult, saveDailyQuizResult, type DailyQuizResultRow } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
+import { triggerConfetti } from "../services/confetti";
 import { getDailyQuiz } from "../services/dailyQuiz";
+import { getLeaderboard } from "../services/leaderboard";
 import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
 
@@ -47,6 +49,7 @@ export default function DailyQuizPage() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [finished, setFinished] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [percentile, setPercentile] = useState<number | null>(null);
   const quizStartRef = useRef<number | null>(null);
   const questionStartRef = useRef<number | null>(null);
 
@@ -78,6 +81,17 @@ export default function DailyQuizPage() {
     questionStartRef.current = Date.now();
   }, [index]);
 
+  useEffect(() => {
+    if (!finished) return;
+    getLeaderboard()
+      .then((r) => {
+        if (r.me.rank && r.ranking.length > 1) {
+          setPercentile(Math.round(100 - ((r.me.rank - 1) / r.ranking.length) * 100));
+        }
+      })
+      .catch(() => {});
+  }, [finished]);
+
   function handleSelect(optionIndex: number) {
     if (selected !== null || !questions) return;
     setSelected(optionIndex);
@@ -106,6 +120,7 @@ export default function DailyQuizPage() {
       );
       setFinished(true);
       playComplete();
+      if (correctCount === questions.length) triggerConfetti();
     }
   }
 
@@ -180,7 +195,11 @@ export default function DailyQuizPage() {
           </p>
           <p className="score-label">bonnes réponses en {formatElapsed(elapsed)}</p>
           <span className="xp-earned">🏆 +{totalPoints} points</span>
-          <p className="hint">Retrouve ton rang dans l'onglet Classement.</p>
+          {percentile !== null && percentile > 0 ? (
+            <p className="hint">Tu as fait mieux que {percentile}% des joueurs cette semaine !</p>
+          ) : (
+            <p className="hint">Retrouve ton rang dans l'onglet Classement.</p>
+          )}
 
           <button className="btn btn-primary btn-block" onClick={() => navigate("/")}>
             🏠 Retour à l'accueil

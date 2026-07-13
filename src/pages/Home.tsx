@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
 import { SubjectCard } from "../components/SubjectCard";
 import { getDailyQuizResults, getSubjectsWithLessonCounts, type DailyQuizResultRow } from "../db/db";
+import { triggerConfetti } from "../services/confetti";
+import { levelInfo } from "../services/level";
 import { useProfile } from "../ProfileContext";
 import type { Subject } from "../types";
 
@@ -20,6 +22,7 @@ export default function HomePage() {
   const { profile } = useProfile();
   const [subjects, setSubjects] = useState<(Subject & { lessonCount: number })[] | null>(null);
   const [dailyResults, setDailyResults] = useState<DailyQuizResultRow[]>([]);
+  const seenLevel = useRef<number | null>(null);
 
   useEffect(() => {
     getSubjectsWithLessonCounts().then(setSubjects);
@@ -28,23 +31,50 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
+  const xp = profile?.xp ?? 0;
+  const { level, progress } = levelInfo(xp);
+
+  useEffect(() => {
+    if (seenLevel.current !== null && level > seenLevel.current) {
+      triggerConfetti();
+    }
+    seenLevel.current = level;
+  }, [level]);
+
+  const streak = profile?.streak ?? 0;
+  const doneToday = dailyResults.length;
+  const streakAtRisk = streak > 0 && doneToday < DAILY_QUIZ_SUBJECTS.length;
+
   return (
     <div className="screen">
-      <div className="tab-header">
-        <span className="tab-header-title">Mes matières</span>
-        <div className="stat-pills">
-          <span className="stat-pill">
-            <span className="stat-pill-icon">🔥</span>
-            {profile?.streak ?? 0}
-          </span>
-          <span className="stat-pill">
-            <span className="stat-pill-icon">⭐</span>
-            {profile?.xp ?? 0}
-          </span>
+      <div className="tab-header" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span className="tab-header-title">Mes matières</span>
+          <div className="stat-pills">
+            <span className="stat-pill">
+              <span className="stat-pill-icon">🔥</span>
+              {streak}
+            </span>
+            <span className="stat-pill">
+              <span className="stat-pill-icon">⭐</span>
+              {xp}
+            </span>
+            <span className="stat-pill">🏅 Niv. {level}</span>
+          </div>
+        </div>
+        <div className="progress-track" style={{ height: 8 }}>
+          <div className="progress-fill" style={{ width: `${Math.min(100, progress * 100)}%` }} />
         </div>
       </div>
 
       <div className="content" style={{ paddingBottom: 0 }}>
+        {streakAtRisk ? (
+          <div className="streak-risk-banner">
+            🔥 Ta série de {streak} jour{streak > 1 ? "s" : ""} est en jeu — fais le Quiz du jour avant
+            minuit pour la garder !
+          </div>
+        ) : null}
+
         <button className="scan-hero-btn" onClick={() => navigate("/capture")}>
           <span className="scan-hero-icon">📸</span>
           <div className="card-text">

@@ -557,9 +557,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       case "leaderboard": {
         const service = getServiceClient();
+
+        // Classement hebdomadaire (repart de zéro chaque lundi) : donne à
+        // tout le monde une raison de revenir chaque semaine, plutôt qu'un
+        // classement à vie où les premiers arrivés sont indétrônables.
+        const now = new Date();
+        const utcDay = now.getUTCDay();
+        const diffToMonday = utcDay === 0 ? -6 : 1 - utcDay;
+        const monday = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diffToMonday)
+        );
+        const weekStart = monday.toISOString().slice(0, 10);
+
         const { data: results, error: resultsError } = await service
           .from("daily_quiz_results")
-          .select("user_id, xp_earned");
+          .select("user_id, xp_earned")
+          .gte("quiz_date", weekStart);
         if (resultsError) throw resultsError;
 
         const totals = new Map<string, number>();
@@ -567,7 +580,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           totals.set(row.user_id, (totals.get(row.user_id) ?? 0) + row.xp_earned);
         }
         if (totals.size === 0) {
-          return res.status(200).json({ ranking: [], me: { points: 0, rank: null, needsUsername: false } });
+          return res
+            .status(200)
+            .json({ ranking: [], me: { points: 0, rank: null, needsUsername: false }, weekStart });
         }
 
         const { data: profiles, error: profilesError } = await service
@@ -604,7 +619,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           points: r.points,
           isMe: r.userId === userId,
         }));
-        return res.status(200).json({ ranking: publicRanking, me });
+        return res.status(200).json({ ranking: publicRanking, me, weekStart });
       }
 
       default:

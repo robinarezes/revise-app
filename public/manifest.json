@@ -1,0 +1,14 @@
+{
+  "name": "Révise",
+  "short_name": "Révise",
+  "description": "Prends tes cours en photo, révise avec des QCM générés par l'IA.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#58CC02",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

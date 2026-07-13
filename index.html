@@ -7,11 +7,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Révise" />
-    <meta name="theme-color" content="#F7F7FB" />
+    <meta name="theme-color" content="#58CC02" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/app-icon.svg" />
     <title>Révise</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

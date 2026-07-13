@@ -26,6 +26,8 @@ create table public.profiles (
   lv2 text,
   xp integer not null default 0,
   streak integer not null default 0,
+  longest_streak integer not null default 0,
+  streak_freezes integer not null default 1,
   last_active_date date,
   dyslexia_mode boolean not null default false,
   dyslexia_font text not null default 'system',
@@ -58,7 +60,7 @@ create policy "profiles_insert_own" on public.profiles
 revoke update on public.profiles from authenticated;
 grant update (
   username, grade, lv1, lv2, dyslexia_mode, dyslexia_font, dyslexia_tint, dyslexia_size,
-  tts_voice, xp, streak, last_active_date
+  tts_voice, xp, streak, longest_streak, streak_freezes, last_active_date
 ) on public.profiles to authenticated;
 revoke insert on public.profiles from authenticated;
 grant insert (id) on public.profiles to authenticated;

@@ -187,6 +187,19 @@ html.kids-mode .bottom-nav-icon {
   font-size: 26px;
 }
 
+/* --- Confettis (paliers, montées de niveau) --- */
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(100vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
 /* --- Version PC (écran large) : nav latérale au lieu de la barre du bas,
    contenu élargi et centré. L'affichage téléphone ci-dessus reste inchangé
    en dessous de ce seuil. --- */

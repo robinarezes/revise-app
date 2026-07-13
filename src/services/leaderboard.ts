@@ -10,6 +10,7 @@ export type LeaderboardEntry = {
 export type LeaderboardResponse = {
   ranking: LeaderboardEntry[];
   me: { rank: number | null; points: number; needsUsername: boolean };
+  weekStart: string;
 };
 
 export function getLeaderboard(): Promise<LeaderboardResponse> {
