@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { callClaudeTool } from "./_lib/anthropic.js";
+import { callClaudeTool, streamClaudeText } from "./_lib/anthropic.js";
 import { requireUserId } from "./_lib/auth.js";
 import { getCached, setCached } from "./_lib/cache.js";
 import { checkAndConsumeQuota } from "./_lib/quota.js";
@@ -113,15 +113,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .json({ error: "bad_request", message: "Classe, matière ou chapitre manquant." });
         }
         // Cross-visitor cache: a lesson generated once (e.g. "Théorème de
-        // Pythagore" for 4e Mathématiques) is reused by everyone else.
-        // Only the lesson text is generated here (fast) — the QCM,
-        // flashcards, etc. are generated on demand when the student taps
-        // "Réviser", via the "quiz" action, exactly like a photographed
-        // lesson. This is what actually makes creating a lesson feel fast:
-        // the previous version generated everything in one very large call.
+        // Pythagore" for 4e Mathématiques) is reused by everyone else. The
+        // lesson's title is just the topic name (already a clean chapter
+        // title from "topics"), so only the body text needs generating —
+        // the QCM, flashcards, etc. are generated on demand when the
+        // student taps "Réviser", via the "quiz" action.
+        //
+        // The response body is always plain text (the lesson body), even
+        // on a cache hit, so the client can treat every call the same way:
+        // read the stream and show it appearing progressively. A cache hit
+        // just arrives as a single instant chunk.
         const cacheKey = `curriculum:lesson-text:${grade}:${subject}:${topic}`;
-        const cached = await getCached<{ title: string; extractedText: string }>(cacheKey);
-        if (cached) return res.status(200).json(cached);
+        const cached = await getCached<string>(cacheKey);
+        if (cached) {
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          return res.status(200).end(cached);
+        }
 
         const quota = await checkAndConsumeQuota(userId);
         if (!quota.allowed) {
@@ -130,37 +137,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
           });
         }
-        const result = await callClaudeTool<{ title: string; extractedText: string }>({
-          system:
-            "Tu es un professeur qui rédige des leçons complètes, claires et fidèles au programme " +
-            "scolaire français.",
-          userText:
-            `Rédige une leçon complète sur le chapitre "${topic}" du programme de ${subject} en ${grade} ` +
-            "(programme scolaire français officiel).\n\n" +
-            `1. "title" : un titre court pour la leçon.\n` +
-            `2. "extractedText" : le cours complet, structuré en paragraphes clairs (définitions, ` +
-            "explications, exemples, formules si pertinent), comme un vrai cours qu'un professeur " +
-            "donnerait à ses élèves. Mets en évidence les mots-clés et notions importantes en les " +
-            "entourant de doubles astérisques, par exemple **mot-clé** (comme en Markdown), sans en " +
-            "abuser (quelques mots par paragraphe).\n\n" +
-            "Reste fidèle au niveau scolaire demandé, sans être ni trop simple ni trop avancé.",
-          tool: {
-            name: "save_curriculum_lesson",
-            description: "Enregistre la leçon générée.",
-            input_schema: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                extractedText: { type: "string" },
-              },
-              required: ["title", "extractedText"],
-            },
-          },
-          maxTokens: 3072,
-        });
-        await setCached(cacheKey, result);
+
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
-        return res.status(200).json(result);
+        res.status(200);
+
+        let full = "";
+        try {
+          for await (const delta of streamClaudeText({
+            system:
+              "Tu es un professeur qui rédige des leçons complètes, claires et fidèles au programme " +
+              "scolaire français.",
+            userText:
+              `Rédige le cours complet sur le chapitre "${topic}" du programme de ${subject} en ${grade} ` +
+              "(programme scolaire français officiel), structuré en paragraphes clairs (définitions, " +
+              "explications, exemples, formules si pertinent), comme un vrai cours qu'un professeur " +
+              "donnerait à ses élèves. Mets en évidence les mots-clés et notions importantes en les " +
+              "entourant de doubles astérisques, par exemple **mot-clé** (comme en Markdown), sans en " +
+              "abuser (quelques mots par paragraphe). Reste fidèle au niveau scolaire demandé, sans être " +
+              "ni trop simple ni trop avancé. Réponds uniquement avec le texte du cours lui-même, sans " +
+              "titre ni phrase d'introduction du type \"Voici le cours\".",
+            maxTokens: 3072,
+          })) {
+            full += delta;
+            res.write(delta);
+          }
+        } catch (e) {
+          if (!full) {
+            const message = e instanceof Error ? e.message : "Erreur inconnue.";
+            return res.status(502).json({ error: "upstream_error", message });
+          }
+          // Partial content already streamed to the client: just stop here
+          // rather than trying to send a JSON error on top of it.
+        }
+
+        if (full) await setCached(cacheKey, full);
+        return res.end();
       }
 
       default:

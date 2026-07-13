@@ -67,6 +67,31 @@ export async function callBackend<T>(path: string, body: unknown): Promise<T> {
   return data2 as T;
 }
 
+// Same as callBackend, but for endpoints that stream a plain-text body back
+// progressively: onChunk fires for each piece of text as it arrives, so the
+// caller can show it appearing live instead of waiting for the full reply.
+export async function callBackendStream(
+  path: string,
+  body: unknown,
+  onChunk: (chunk: string) => void
+): Promise<void> {
+  const response = await callBackendRaw(path, body);
+  if (!response.ok || !response.body) {
+    const data2 = await response.json().catch(() => ({}));
+    const code = response.status === 401 ? "unauthenticated" : data2.error;
+    throw new BackendError(data2.message ?? `Erreur serveur (${response.status}).`, code);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    if (chunk) onChunk(chunk);
+  }
+}
+
 // Same as callBackend, but for endpoints that return a binary body (audio)
 // instead of JSON.
 export async function callBackendBlob(path: string, body: unknown): Promise<Blob> {

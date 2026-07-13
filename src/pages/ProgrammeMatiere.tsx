@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
+import { HighlightedText } from "../components/HighlightedText";
 import { createLesson, findOrCreateSubject, generateId } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
-import { getCurriculumLesson, getCurriculumTopics } from "../services/curriculum";
+import { getCurriculumTopics, streamCurriculumLesson } from "../services/curriculum";
 
 export default function ProgrammeMatierePage() {
   const { matiere = "" } = useParams();
@@ -15,6 +16,7 @@ export default function ProgrammeMatierePage() {
   const [topics, setTopics] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
+  const [streamedText, setStreamedText] = useState("");
 
   useEffect(() => {
     if (!grade) return;
@@ -27,16 +29,17 @@ export default function ProgrammeMatierePage() {
   async function handlePickTopic(topic: string) {
     if (!grade) return;
     setGeneratingTopic(topic);
+    setStreamedText("");
     try {
-      const generated = await getCurriculumLesson(grade, subject, topic);
+      const extractedText = await streamCurriculumLesson(grade, subject, topic, setStreamedText);
       const subjectRecord = await findOrCreateSubject(subject);
       const lessonId = generateId();
       const lesson = await createLesson({
         id: lessonId,
         subjectId: subjectRecord.id,
-        title: generated.title,
+        title: topic,
         photoIds: [],
-        extractedText: generated.extractedText,
+        extractedText,
       });
       // Le QCM/les flashcards/etc. se génèrent à la demande en appuyant sur
       // "Réviser", comme pour une leçon photographiée : ça rend la création
@@ -59,9 +62,18 @@ export default function ProgrammeMatierePage() {
     return (
       <div className="screen">
         <Header title={subject} />
-        <div className="loading-screen">
-          <div className="spinner" />
-          <p className="loading-text">Préparation de la leçon "{generatingTopic}"...</p>
+        <div className="content">
+          {streamedText ? (
+            <>
+              <p className="section-label">✍️ {generatingTopic}</p>
+              <HighlightedText text={streamedText} />
+            </>
+          ) : (
+            <div className="loading-screen">
+              <div className="spinner" />
+              <p className="loading-text">Préparation de la leçon "{generatingTopic}"...</p>
+            </div>
+          )}
         </div>
       </div>
     );
