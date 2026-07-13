@@ -45,14 +45,27 @@ export default function HomePage() {
       </div>
 
       <div className="content" style={{ paddingBottom: 0 }}>
-        <p className="section-label">Quiz du jour</p>
+        <button className="scan-hero-btn" onClick={() => navigate("/capture")}>
+          <span className="scan-hero-icon">📸</span>
+          <div className="card-text">
+            <p className="scan-hero-title">Scanner un cours</p>
+            <p className="scan-hero-subtitle">Prends en photo tes feuilles, l'IA crée la leçon</p>
+          </div>
+          <span className="chevron" style={{ color: "var(--yellow-text)" }}>
+            ›
+          </span>
+        </button>
+
+        <p className="section-label" style={{ marginTop: 20 }}>
+          🔥 Quiz du jour
+        </p>
         <div className="daily-quiz-row">
           {DAILY_QUIZ_SUBJECTS.map((s) => {
             const result = dailyResults.find((r) => r.subject === s.name);
             return (
               <button
                 key={s.name}
-                className="daily-quiz-card"
+                className={`daily-quiz-card ${result ? "daily-quiz-card-done" : "daily-quiz-card-todo"}`}
                 onClick={() => navigate(`/quiz-du-jour/${encodeURIComponent(s.name)}`)}
               >
                 {result ? (
@@ -109,12 +122,6 @@ export default function HomePage() {
           </div>
         </div>
       )}
-
-      <div className="fab-anchor">
-        <button className="fab" onClick={() => navigate("/capture")}>
-          +
-        </button>
-      </div>
 
       <BottomNav />
     </div>
