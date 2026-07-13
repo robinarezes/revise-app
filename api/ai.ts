@@ -601,7 +601,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: "bad_request", message: "Action inconnue. Recharge la page (une mise à jour a peut-être eu lieu) puis réessaie." });
     }
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Erreur inconnue.";
+    // Supabase's PostgrestError isn't an Error instance, so it needs its own
+    // check to surface a real message instead of a generic fallback.
+    const message =
+      e instanceof Error
+        ? e.message
+        : e && typeof e === "object" && "message" in e
+          ? String((e as { message: unknown }).message)
+          : "Erreur inconnue.";
     return res.status(502).json({ error: "upstream_error", message });
   }
 }
