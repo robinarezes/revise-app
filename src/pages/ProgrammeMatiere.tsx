@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { createLesson, findOrCreateSubject, generateId } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { BackendError } from "../services/backendClient";
 import { getCurriculumLesson, getCurriculumTopics } from "../services/curriculum";
 
 export default function ProgrammeMatierePage() {
@@ -43,6 +44,10 @@ export default function ProgrammeMatierePage() {
       // génération.
       navigate(`/lecon/${lesson.id}`);
     } catch (e) {
+      if (e instanceof BackendError && e.code === "quota_exceeded") {
+        navigate("/premium?raison=quota");
+        return;
+      }
       const message = e instanceof Error ? e.message : "Erreur inconnue.";
       alert(`Échec de la génération : ${message}`);
     } finally {

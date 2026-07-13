@@ -4,6 +4,7 @@ import { Header } from "../components/Header";
 import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { BackendError } from "../services/backendClient";
 import { correctAnswer, type Correction } from "../services/correctAnswer";
 import type { ExerciseQuestion } from "../types";
 
@@ -52,6 +53,10 @@ export default function ExercicePage() {
       setResults((r) => [...r, result.verdict]);
       addXp(XP_BY_VERDICT[result.verdict]);
     } catch (e) {
+      if (e instanceof BackendError && e.code === "quota_exceeded") {
+        navigate("/premium?raison=quota");
+        return;
+      }
       const message = e instanceof Error ? e.message : "Erreur inconnue.";
       alert(`Échec de la correction : ${message}`);
     } finally {
