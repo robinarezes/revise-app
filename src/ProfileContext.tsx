@@ -13,16 +13,19 @@ export type Profile = {
   streak: number;
   last_active_date: string | null;
   dyslexia_mode: boolean;
+  subscription_status: string;
 };
 
 type ProfileContextValue = {
   profile: Profile | null;
   loading: boolean;
+  isPremium: boolean;
   updateProfile: (
     patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2" | "dyslexia_mode">>
   ) => Promise<void>;
   addXp: (amount: number) => Promise<void>;
   recordActivity: () => Promise<void>;
+  refetchProfile: () => Promise<void>;
 };
 
 const ProfileContext = createContext<ProfileContextValue | undefined>(undefined);
@@ -42,6 +45,23 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle("dyslexia-mode", profile?.dyslexia_mode ?? false);
   }, [profile?.dyslexia_mode]);
 
+  async function fetchProfile(userId: string) {
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (data) {
+      setProfile(data as Profile);
+      return;
+    }
+    // Compte sans ligne de profil (le trigger de création n'a pas
+    // tourné, ou la ligne a été supprimée) : on la recrée pour éviter
+    // de rester bloqué indéfiniment sur un écran vide.
+    const { data: created } = await supabase
+      .from("profiles")
+      .insert({ id: userId })
+      .select()
+      .single();
+    setProfile((created as Profile | null) ?? null);
+  }
+
   useEffect(() => {
     if (!session) {
       setProfile(null);
@@ -49,29 +69,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLoading(true);
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", session.user.id)
-      .maybeSingle()
-      .then(async ({ data }) => {
-        if (data) {
-          setProfile(data as Profile);
-          setLoading(false);
-          return;
-        }
-        // Compte sans ligne de profil (le trigger de création n'a pas
-        // tourné, ou la ligne a été supprimée) : on la recrée pour éviter
-        // de rester bloqué indéfiniment sur un écran vide.
-        const { data: created } = await supabase
-          .from("profiles")
-          .insert({ id: session.user.id })
-          .select()
-          .single();
-        setProfile((created as Profile | null) ?? null);
-        setLoading(false);
-      });
+    fetchProfile(session.user.id).then(() => setLoading(false));
   }, [session]);
+
+  async function refetchProfile() {
+    if (!session) return;
+    await fetchProfile(session.user.id);
+  }
 
   async function updateProfile(patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2">>) {
     if (!session) return;
@@ -104,8 +108,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     setProfile((p) => (p ? { ...p, xp: newXp } : p));
   }
 
+  const isPremium = profile?.subscription_status === "active";
+
   return (
-    <ProfileContext.Provider value={{ profile, loading, updateProfile, addXp, recordActivity }}>
+    <ProfileContext.Provider
+      value={{ profile, loading, isPremium, updateProfile, addXp, recordActivity, refetchProfile }}
+    >
       {children}
     </ProfileContext.Provider>
   );

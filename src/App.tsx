@@ -6,12 +6,15 @@ import ChatModePage from "./pages/ChatMode";
 import DailyQuizPage from "./pages/DailyQuiz";
 import ExercicePage from "./pages/ExerciceMode";
 import FlashcardsPage from "./pages/FlashcardsMode";
+import GeneralQuizPage from "./pages/GeneralQuiz";
+import GeneralQuizSubjectsPage from "./pages/GeneralQuizSubjects";
 import HomePage from "./pages/Home";
 import LeconPage from "./pages/Lecon";
 import LeconModePage from "./pages/LeconMode";
 import LeconsPage from "./pages/Lecons";
 import MatierePage from "./pages/Matiere";
 import { Onboarding } from "./pages/Onboarding";
+import PremiumPage from "./pages/Premium";
 import ProgrammePage from "./pages/Programme";
 import ProgrammeMatierePage from "./pages/ProgrammeMatiere";
 import QcmPage from "./pages/QcmMode";
@@ -57,6 +60,9 @@ function AppGate() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/quiz-du-jour/:subject" element={<DailyQuizPage />} />
+        <Route path="/quiz-general" element={<GeneralQuizSubjectsPage />} />
+        <Route path="/quiz-general/:subject" element={<GeneralQuizPage />} />
+        <Route path="/premium" element={<PremiumPage />} />
         <Route path="/lecons" element={<LeconsPage />} />
         <Route path="/programme" element={<ProgrammePage />} />
         <Route path="/programme/:matiere" element={<ProgrammeMatierePage />} />

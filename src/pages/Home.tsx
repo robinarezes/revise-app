@@ -2,17 +2,30 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
 import { SubjectCard } from "../components/SubjectCard";
-import { getSubjectsWithLessonCounts } from "../db/db";
+import { getDailyQuizResults, getSubjectsWithLessonCounts, type DailyQuizResultRow } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import type { Subject } from "../types";
+
+const DAILY_QUIZ_SUBJECTS = [
+  { name: "Mathématiques", label: "Maths", icon: "🧮" },
+  { name: "Français", label: "Français", icon: "📖" },
+];
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { profile } = useProfile();
   const [subjects, setSubjects] = useState<(Subject & { lessonCount: number })[] | null>(null);
+  const [dailyResults, setDailyResults] = useState<DailyQuizResultRow[]>([]);
 
   useEffect(() => {
     getSubjectsWithLessonCounts().then(setSubjects);
+    getDailyQuizResults(todayStr())
+      .then(setDailyResults)
+      .catch(() => {});
   }, []);
 
   return (
@@ -34,21 +47,44 @@ export default function HomePage() {
       <div className="content" style={{ paddingBottom: 0 }}>
         <p className="section-label">Quiz du jour</p>
         <div className="daily-quiz-row">
-          <button
-            className="daily-quiz-card"
-            onClick={() => navigate(`/quiz-du-jour/${encodeURIComponent("Mathématiques")}`)}
-          >
-            <span className="daily-quiz-icon">🧮</span>
-            <span className="daily-quiz-label">Maths</span>
-          </button>
-          <button
-            className="daily-quiz-card"
-            onClick={() => navigate(`/quiz-du-jour/${encodeURIComponent("Français")}`)}
-          >
-            <span className="daily-quiz-icon">📖</span>
-            <span className="daily-quiz-label">Français</span>
-          </button>
+          {DAILY_QUIZ_SUBJECTS.map((s) => {
+            const result = dailyResults.find((r) => r.subject === s.name);
+            return (
+              <button
+                key={s.name}
+                className="daily-quiz-card"
+                onClick={() => navigate(`/quiz-du-jour/${encodeURIComponent(s.name)}`)}
+              >
+                {result ? (
+                  <>
+                    <span className="daily-quiz-done-badge">✅</span>
+                    <span className="daily-quiz-label">{s.label}</span>
+                    <span className="daily-quiz-score">
+                      {result.score}/{result.total}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="daily-quiz-icon">{s.icon}</span>
+                    <span className="daily-quiz-label">{s.label}</span>
+                  </>
+                )}
+              </button>
+            );
+          })}
         </div>
+
+        <p className="section-label" style={{ marginTop: 20 }}>
+          Quiz
+        </p>
+        <button className="quiz-general-card" onClick={() => navigate("/quiz-general")}>
+          <span className="quiz-general-icon">🏆</span>
+          <div className="card-text">
+            <p className="card-name">Quiz général</p>
+            <p className="mode-btn-subtitle">Gagne des points sur toutes les matières, à volonté</p>
+          </div>
+          <span className="chevron">›</span>
+        </button>
       </div>
 
       {subjects && subjects.length === 0 ? (

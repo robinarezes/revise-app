@@ -27,6 +27,10 @@ create table public.profiles (
   streak integer not null default 0,
   last_active_date date,
   dyslexia_mode boolean not null default false,
+  subscription_status text not null default 'free',
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  subscription_current_period_end timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -40,6 +44,14 @@ create policy "profiles_update_own" on public.profiles
 
 create policy "profiles_insert_own" on public.profiles
   for insert with check (auth.uid() = id);
+
+-- Colonnes d'abonnement en lecture seule pour le client : seul le webhook
+-- Stripe (clé service_role, hors RLS) peut les modifier.
+revoke update on public.profiles from authenticated;
+grant update (grade, lv1, lv2, dyslexia_mode, xp, streak, last_active_date) on public.profiles
+  to authenticated;
+revoke insert on public.profiles from authenticated;
+grant insert (id) on public.profiles to authenticated;
 
 create function public.handle_new_user()
 returns trigger as $$
@@ -100,6 +112,25 @@ create table public.quiz_sets (
 alter table public.quiz_sets enable row level security;
 
 create policy "quiz_sets_all_own" on public.quiz_sets
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 4bis. Résultats du quiz du jour (un par utilisateur/matière/jour) --------
+
+create table public.daily_quiz_results (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  subject text not null,
+  quiz_date date not null,
+  score integer not null,
+  total integer not null,
+  xp_earned integer not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, subject, quiz_date)
+);
+
+alter table public.daily_quiz_results enable row level security;
+
+create policy "daily_quiz_results_all_own" on public.daily_quiz_results
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- 5. Stockage des photos de leçons ------------------------------------------

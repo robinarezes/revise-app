@@ -189,6 +189,67 @@ export async function saveQuizSet(
   return rowToQuizSet(data);
 }
 
+// --- Résultats du quiz du jour ---
+
+export type DailyQuizResultRow = {
+  subject: string;
+  quizDate: string;
+  score: number;
+  total: number;
+  xpEarned: number;
+};
+
+function rowToDailyQuizResult(row: any): DailyQuizResultRow {
+  return {
+    subject: row.subject,
+    quizDate: row.quiz_date,
+    score: row.score,
+    total: row.total,
+    xpEarned: row.xp_earned,
+  };
+}
+
+export async function getDailyQuizResult(
+  subject: string,
+  quizDate: string
+): Promise<DailyQuizResultRow | undefined> {
+  const { data } = await supabase
+    .from("daily_quiz_results")
+    .select("*")
+    .eq("subject", subject)
+    .eq("quiz_date", quizDate)
+    .maybeSingle();
+  return data ? rowToDailyQuizResult(data) : undefined;
+}
+
+export async function getDailyQuizResults(quizDate: string): Promise<DailyQuizResultRow[]> {
+  const { data, error } = await supabase
+    .from("daily_quiz_results")
+    .select("*")
+    .eq("quiz_date", quizDate);
+  if (error) throw error;
+  return (data ?? []).map(rowToDailyQuizResult);
+}
+
+export async function saveDailyQuizResult(
+  subject: string,
+  quizDate: string,
+  score: number,
+  total: number,
+  xpEarned: number
+): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase.from("daily_quiz_results").insert({
+    user_id: userId,
+    subject,
+    quiz_date: quizDate,
+    score,
+    total,
+    xp_earned: xpEarned,
+  });
+  if (error) throw error;
+}
+
 // --- Photos ---
 
 // Uploads a staged photo to Supabase Storage and returns its storage path

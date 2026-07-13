@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { createLesson, findOrCreateSubject, generateId, getSubjects, savePhoto } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { BackendError } from "../services/backendClient";
 import { classifyLesson } from "../services/classifyLesson";
 
 const XP_PER_LESSON = 10;
@@ -81,6 +82,10 @@ export default function CapturePage() {
       await addXp(XP_PER_LESSON);
       navigate(`/lecon/${lesson.id}`, { replace: true, state: { xpEarned: XP_PER_LESSON } });
     } catch (e) {
+      if (e instanceof BackendError && e.code === "quota_exceeded") {
+        navigate("/premium?raison=quota");
+        return;
+      }
       const message = e instanceof Error ? e.message : "Erreur inconnue.";
       alert(`Échec de l'analyse : ${message}`);
     } finally {

@@ -1,27 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { Header } from "../components/Header";
-import { getDailyQuizResult, saveDailyQuizResult, type DailyQuizResultRow } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
-import { getDailyQuiz } from "../services/dailyQuiz";
+import { getGeneralQuiz } from "../services/generalQuiz";
 import type { QcmQuestion } from "../types";
 
-const XP_PER_CORRECT = 3;
+const XP_PER_CORRECT = 4;
+const PERFECT_BONUS = 10;
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export default function DailyQuizPage() {
+export default function GeneralQuizPage() {
   const { subject = "" } = useParams();
   const subjectName = decodeURIComponent(subject);
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { profile, addXp, recordActivity } = useProfile();
   const [questions, setQuestions] = useState<QcmQuestion[] | null>(null);
-  const [alreadyDone, setAlreadyDone] = useState<DailyQuizResultRow | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [needsReauth, setNeedsReauth] = useState(false);
   const [index, setIndex] = useState(0);
@@ -29,19 +24,31 @@ export default function DailyQuizPage() {
   const [correctCount, setCorrectCount] = useState(0);
   const [finished, setFinished] = useState(false);
 
-  useEffect(() => {
-    getDailyQuizResult(subjectName, todayStr()).then((r) => setAlreadyDone(r ?? null));
-  }, [subjectName]);
-
-  useEffect(() => {
-    if (!profile?.grade || alreadyDone !== null) return;
-    getDailyQuiz(profile.grade, subjectName)
+  const loadQuiz = useCallback(() => {
+    if (!profile?.grade) return;
+    setQuestions(null);
+    setError(null);
+    setNeedsReauth(false);
+    setIndex(0);
+    setSelected(null);
+    setCorrectCount(0);
+    setFinished(false);
+    getGeneralQuiz(profile.grade, subjectName)
       .then((r) => setQuestions(r.qcm))
       .catch((e) => {
+        if (e instanceof BackendError && e.code === "quota_exceeded") {
+          navigate("/premium?raison=quota");
+          return;
+        }
         setError(e instanceof Error ? e.message : "Erreur inconnue.");
         setNeedsReauth(e instanceof BackendError && e.code === "unauthenticated");
       });
-  }, [profile?.grade, subjectName, alreadyDone]);
+  }, [profile?.grade, subjectName, navigate]);
+
+  useEffect(() => {
+    loadQuiz();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.grade, subjectName]);
 
   function handleSelect(optionIndex: number) {
     if (selected !== null || !questions) return;
@@ -59,45 +66,17 @@ export default function DailyQuizPage() {
       setSelected(null);
     } else {
       recordActivity();
-      const xpEarned = correctCount * XP_PER_CORRECT;
-      saveDailyQuizResult(subjectName, todayStr(), correctCount, questions.length, xpEarned).catch(
-        () => {}
-      );
+      if (correctCount === questions.length) {
+        addXp(PERFECT_BONUS);
+      }
       setFinished(true);
     }
-  }
-
-  if (alreadyDone === undefined) {
-    return <div className="screen" />;
-  }
-
-  if (alreadyDone) {
-    const ratio = alreadyDone.score / alreadyDone.total;
-    return (
-      <div className="screen">
-        <Header title={`Quiz du jour · ${subjectName}`} />
-        <div className="content-center">
-          <span className="celebrate-emoji">{ratio >= 0.8 ? "🎉" : ratio >= 0.5 ? "👍" : "💪"}</span>
-          <p className="title-md">Déjà fait aujourd'hui !</p>
-          <p className="score-text">
-            {alreadyDone.score} / {alreadyDone.total}
-          </p>
-          <p className="score-label">bonnes réponses</p>
-          <span className="xp-earned">⭐ +{alreadyDone.xpEarned} XP</span>
-          <p className="hint">Reviens demain pour un nouveau quiz.</p>
-
-          <button className="btn btn-secondary btn-block" onClick={() => navigate("/")}>
-            🏠 Retour à l'accueil
-          </button>
-        </div>
-      </div>
-    );
   }
 
   if (error) {
     return (
       <div className="screen">
-        <Header title={`Quiz du jour · ${subjectName}`} />
+        <Header title={`Quiz général · ${subjectName}`} />
         <div className="content-center">
           <p className="hint">{error}</p>
           {needsReauth ? (
@@ -117,30 +96,36 @@ export default function DailyQuizPage() {
   if (!questions) {
     return (
       <div className="screen">
-        <Header title={`Quiz du jour · ${subjectName}`} />
+        <Header title={`Quiz général · ${subjectName}`} />
         <div className="loading-screen">
           <div className="spinner" />
-          <p className="loading-text">Préparation du quiz du jour...</p>
+          <p className="loading-text">Préparation du quiz...</p>
         </div>
       </div>
     );
   }
 
   if (finished) {
-    const xpEarned = correctCount * XP_PER_CORRECT;
+    const perfect = correctCount === questions.length;
+    const xpEarned = correctCount * XP_PER_CORRECT + (perfect ? PERFECT_BONUS : 0);
     const ratio = correctCount / questions.length;
     return (
       <div className="screen">
         <Header title="Résultat" />
         <div className="content-center">
-          <span className="celebrate-emoji">{ratio >= 0.8 ? "🎉" : ratio >= 0.5 ? "👍" : "💪"}</span>
+          <span className="celebrate-emoji">
+            {perfect ? "🏆" : ratio >= 0.5 ? "👍" : "💪"}
+          </span>
           <p className="score-text">
             {correctCount} / {questions.length}
           </p>
           <p className="score-label">bonnes réponses</p>
-          <span className="xp-earned">⭐ +{xpEarned} XP</span>
+          <span className="xp-earned">⭐ +{xpEarned} XP{perfect ? " (score parfait !)" : ""}</span>
 
-          <button className="btn btn-primary btn-block" onClick={() => navigate("/")}>
+          <button className="btn btn-primary btn-block" onClick={loadQuiz}>
+            🔄 Rejouer (encore des points !)
+          </button>
+          <button className="btn btn-secondary btn-block" onClick={() => navigate("/")}>
             🏠 Retour à l'accueil
           </button>
         </div>
@@ -153,7 +138,7 @@ export default function DailyQuizPage() {
 
   return (
     <div className="screen">
-      <Header title={`Quiz du jour · ${subjectName}`} />
+      <Header title={`Quiz général · ${subjectName}`} />
       <div className="quiz-progress-row">
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progress}%` }} />

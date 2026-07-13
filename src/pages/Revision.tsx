@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { NotFoundScreen } from "../components/NotFoundScreen";
-import { generateQuiz } from "../services/generateQuiz";
 import { getLesson, getQuizSet, saveQuizSet } from "../db/db";
+import { BackendError } from "../services/backendClient";
+import { generateQuiz } from "../services/generateQuiz";
 import type { Lesson, QuizSet } from "../types";
 
 export default function RevisionPage() {
@@ -40,6 +41,10 @@ export default function RevisionPage() {
       );
       setQuizSet(saved);
     } catch (e) {
+      if (e instanceof BackendError && e.code === "quota_exceeded") {
+        navigate("/premium?raison=quota");
+        return;
+      }
       const message = e instanceof Error ? e.message : "Erreur inconnue.";
       alert(`Échec de la génération : ${message}`);
     } finally {
