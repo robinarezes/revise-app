@@ -186,3 +186,22 @@ html.kids-mode .btn {
 html.kids-mode .bottom-nav-icon {
   font-size: 26px;
 }
+
+/* --- Version PC (écran large) : nav latérale au lieu de la barre du bas,
+   contenu élargi et centré. L'affichage téléphone ci-dessus reste inchangé
+   en dessous de ce seuil. --- */
+
+@media (min-width: 900px) {
+  #root {
+    max-width: none;
+  }
+
+  .screen {
+    padding-left: 240px;
+    min-height: 100vh;
+  }
+
+  .fab-anchor {
+    max-width: none;
+  }
+}

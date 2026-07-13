@@ -41,12 +41,15 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles
   for select using (auth.uid() = id);
 
+drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
   for update using (auth.uid() = id);
 
+drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own" on public.profiles
   for insert with check (auth.uid() = id);
 
@@ -83,6 +86,7 @@ create table public.subjects (
 
 alter table public.subjects enable row level security;
 
+drop policy if exists "subjects_all_own" on public.subjects;
 create policy "subjects_all_own" on public.subjects
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -101,6 +105,7 @@ create table public.lessons (
 
 alter table public.lessons enable row level security;
 
+drop policy if exists "lessons_all_own" on public.lessons;
 create policy "lessons_all_own" on public.lessons
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -118,6 +123,7 @@ create table public.quiz_sets (
 
 alter table public.quiz_sets enable row level security;
 
+drop policy if exists "quiz_sets_all_own" on public.quiz_sets;
 create policy "quiz_sets_all_own" on public.quiz_sets
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -136,6 +142,8 @@ create table public.daily_quiz_results (
 );
 
 alter table public.daily_quiz_results enable row level security;
+
+drop policy if exists "daily_quiz_results_all_own" on public.daily_quiz_results;
 
 create policy "daily_quiz_results_all_own" on public.daily_quiz_results
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -159,16 +167,19 @@ insert into storage.buckets (id, name, public)
 values ('lesson-photos', 'lesson-photos', false)
 on conflict (id) do nothing;
 
+drop policy if exists "lesson_photos_select_own" on storage.objects;
 create policy "lesson_photos_select_own" on storage.objects
   for select using (
     bucket_id = 'lesson-photos' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "lesson_photos_insert_own" on storage.objects;
 create policy "lesson_photos_insert_own" on storage.objects
   for insert with check (
     bucket_id = 'lesson-photos' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "lesson_photos_delete_own" on storage.objects;
 create policy "lesson_photos_delete_own" on storage.objects
   for delete using (
     bucket_id = 'lesson-photos' and (storage.foldername(name))[1] = auth.uid()::text

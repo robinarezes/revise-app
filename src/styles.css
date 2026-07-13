@@ -1426,3 +1426,102 @@ input[type="password"]:focus {
   max-width: 100%;
   height: auto;
 }
+
+/* ==========================================================================
+   Version PC (écran large, >= 900px) : nav latérale + contenu élargi.
+   Rien ici n'est appliqué en dessous de 900px : le téléphone garde
+   exactement son interface actuelle.
+   ========================================================================== */
+
+@media (min-width: 900px) {
+  /* --- Barre du bas -> nav latérale fixe à gauche --- */
+
+  .bottom-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: auto;
+    width: 240px;
+    height: 100vh;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 28px 14px;
+    border-top: none;
+    border-right: 2px solid var(--border);
+  }
+
+  .bottom-nav-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: 15px;
+  }
+
+  .bottom-nav-item:hover {
+    background: var(--surface-alt);
+  }
+
+  .bottom-nav-item.active {
+    background: var(--success-bg);
+  }
+
+  .bottom-nav-icon {
+    font-size: 22px;
+  }
+
+  /* --- En-têtes et contenu : élargis et centrés, plus de bords collés --- */
+
+  .header,
+  .tab-header {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .content,
+  .content-center {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px;
+  }
+
+  /* --- Listes de cartes : profitent de la largeur en grille --- */
+
+  .card-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    align-items: start;
+  }
+
+  .grade-grid {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 480px;
+  }
+
+  .badge-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  .plan-picker {
+    max-width: 420px;
+  }
+
+  .mode-btn,
+  .topic-card,
+  .quiz-general-card {
+    cursor: pointer;
+  }
+
+  .mode-btn:hover,
+  .topic-card:hover,
+  .quiz-general-card:hover,
+  .option:not(:disabled):hover,
+  .daily-quiz-card:hover {
+    border-color: var(--primary);
+  }
+}

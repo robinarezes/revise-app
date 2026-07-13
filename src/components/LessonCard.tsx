@@ -48,9 +48,9 @@ export function LessonCard({
         </button>
         <button
           className="lesson-action-btn"
-          onClick={() => navigate(`/revision/${lesson.id}?auto=exercice`)}
+          onClick={() => navigate(`/revision/${lesson.id}?auto=apprendre`)}
         >
-          ✍️ Exercice
+          📘 Leçon
         </button>
       </div>
     </div>
