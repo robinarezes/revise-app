@@ -12,12 +12,25 @@ type Editing = "grade" | "lv1" | "lv2" | null;
 
 export default function SettingsPage() {
   const { profile, isPremium, updateProfile, refetchProfile } = useProfile();
-  const { signOut } = useAuth();
+  const { session, signOut } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [editing, setEditing] = useState<Editing>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [username, setUsername] = useState(profile?.username ?? "");
+  const [usernameSaved, setUsernameSaved] = useState(false);
+
+  useEffect(() => {
+    setUsername(profile?.username ?? "");
+  }, [profile?.username]);
+
+  async function handleSaveUsername() {
+    const trimmed = username.trim();
+    await updateProfile({ username: trimmed || null });
+    setUsernameSaved(true);
+    setTimeout(() => setUsernameSaved(false), 2000);
+  }
 
   useEffect(() => {
     if (searchParams.get("upgraded") !== "1" || isPremium) return;
@@ -65,6 +78,28 @@ export default function SettingsPage() {
         <span className="tab-header-title">Réglages</span>
       </div>
       <div className="content">
+        <label className="field-label">Compte</label>
+        <div className="actions-row">
+          <span className="grade-pill">✉️ {session?.user.email}</span>
+        </div>
+
+        <label className="field-label" style={{ marginTop: 12 }}>
+          Nom d'utilisateur
+        </label>
+        <div className="actions-row">
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Ton pseudo"
+            maxLength={30}
+            style={{ flex: 1 }}
+          />
+          <button className="link-btn" onClick={handleSaveUsername}>
+            {usernameSaved ? "✅" : "Enregistrer"}
+          </button>
+        </div>
+
         <label className="field-label">Ma classe</label>
         {editing === "grade" ? (
           <div className="grade-grid">

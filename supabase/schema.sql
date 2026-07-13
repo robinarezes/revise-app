@@ -20,6 +20,7 @@ drop table if exists public.profiles cascade;
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
+  username text,
   grade text,
   lv1 text,
   lv2 text,
@@ -48,8 +49,8 @@ create policy "profiles_insert_own" on public.profiles
 -- Colonnes d'abonnement en lecture seule pour le client : seul le webhook
 -- Stripe (clé service_role, hors RLS) peut les modifier.
 revoke update on public.profiles from authenticated;
-grant update (grade, lv1, lv2, dyslexia_mode, xp, streak, last_active_date) on public.profiles
-  to authenticated;
+grant update (username, grade, lv1, lv2, dyslexia_mode, xp, streak, last_active_date)
+  on public.profiles to authenticated;
 revoke insert on public.profiles from authenticated;
 grant insert (id) on public.profiles to authenticated;
 

@@ -6,6 +6,7 @@ import { supabase } from "./supabaseClient";
 
 export type Profile = {
   id: string;
+  username: string | null;
   grade: Grade | null;
   lv1: Language | null;
   lv2: Language | null;
@@ -21,7 +22,7 @@ type ProfileContextValue = {
   loading: boolean;
   isPremium: boolean;
   updateProfile: (
-    patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2" | "dyslexia_mode">>
+    patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2" | "dyslexia_mode" | "username">>
   ) => Promise<void>;
   addXp: (amount: number) => Promise<void>;
   recordActivity: () => Promise<void>;
@@ -59,7 +60,19 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       .insert({ id: userId })
       .select()
       .single();
-    setProfile((created as Profile | null) ?? null);
+    if (created) {
+      setProfile(created as Profile);
+      return;
+    }
+    // L'insertion a échoué (par ex. une autre requête concurrente a déjà
+    // créé la ligne entre-temps) : on retente une dernière lecture avant
+    // d'abandonner, plutôt que de laisser le profil vide.
+    const { data: retried } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+    setProfile((retried as Profile | null) ?? null);
   }
 
   useEffect(() => {
@@ -69,7 +82,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLoading(true);
-    fetchProfile(session.user.id).then(() => setLoading(false));
+    fetchProfile(session.user.id)
+      .catch(() => setProfile(null))
+      .finally(() => setLoading(false));
   }, [session]);
 
   async function refetchProfile() {
@@ -77,7 +92,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     await fetchProfile(session.user.id);
   }
 
-  async function updateProfile(patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2">>) {
+  async function updateProfile(
+    patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2" | "dyslexia_mode" | "username">>
+  ) {
     if (!session) return;
     await supabase.from("profiles").update(patch).eq("id", session.user.id);
     setProfile((p) => (p ? { ...p, ...patch } : p));

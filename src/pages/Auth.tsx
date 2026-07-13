@@ -3,7 +3,7 @@ import { useAuth } from "../AuthContext";
 
 export default function AuthPage() {
   const { signUp, signIn } = useAuth();
-  const [mode, setMode] = useState<"signup" | "login">("signup");
+  const [mode, setMode] = useState<"signup" | "login">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,15 @@ export default function AuthPage() {
       mode === "signup" ? await signUp(trimmedEmail, password) : await signIn(trimmedEmail, password);
     setLoading(false);
     if (result.error) {
+      if (mode === "signup" && /already registered|already exists/i.test(result.error)) {
+        setError("Un compte existe déjà avec cet email. Connecte-toi plutôt ci-dessous.");
+        setMode("login");
+        return;
+      }
+      if (mode === "login" && /invalid login credentials/i.test(result.error)) {
+        setError("Email ou mot de passe incorrect.");
+        return;
+      }
       setError(result.error);
       return;
     }
