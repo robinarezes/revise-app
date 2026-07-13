@@ -176,7 +176,8 @@ export default function SettingsPage() {
         ) : (
           <>
             <p className="hint">
-              Passe en illimité : plus de limite quotidienne sur l'IA, à partir de 2,50 €/mois.
+              Passe en illimité : plus de limite quotidienne sur l'IA, dès 3,99 €/mois (ou
+              29,99 €/an, soit 2,50 €/mois).
             </p>
             <button className="btn btn-primary btn-block" onClick={() => navigate("/premium")}>
               ⭐ Passer à Premium
