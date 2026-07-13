@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
-import { createLesson, findOrCreateSubject, generateId, saveQuizSet } from "../db/db";
+import { createLesson, findOrCreateSubject, generateId } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { getCurriculumLesson, getCurriculumTopics } from "../services/curriculum";
 
@@ -37,13 +37,10 @@ export default function ProgrammeMatierePage() {
         photoIds: [],
         extractedText: generated.extractedText,
       });
-      await saveQuizSet(
-        lesson.id,
-        generated.qcm,
-        generated.flashcards,
-        generated.lessonCards,
-        generated.exercises
-      );
+      // Le QCM/les flashcards/etc. se génèrent à la demande en appuyant sur
+      // "Réviser", comme pour une leçon photographiée : ça rend la création
+      // de la leçon quasi instantanée au lieu d'attendre une seule grosse
+      // génération.
       navigate(`/lecon/${lesson.id}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Erreur inconnue.";

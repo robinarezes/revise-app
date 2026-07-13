@@ -114,8 +114,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // Cross-visitor cache: a lesson generated once (e.g. "Théorème de
         // Pythagore" for 4e Mathématiques) is reused by everyone else.
-        const cacheKey = `curriculum:lesson:${grade}:${subject}:${topic}`;
-        const cached = await getCached<Record<string, unknown>>(cacheKey);
+        // Only the lesson text is generated here (fast) — the QCM,
+        // flashcards, etc. are generated on demand when the student taps
+        // "Réviser", via the "quiz" action, exactly like a photographed
+        // lesson. This is what actually makes creating a lesson feel fast:
+        // the previous version generated everything in one very large call.
+        const cacheKey = `curriculum:lesson-text:${grade}:${subject}:${topic}`;
+        const cached = await getCached<{ title: string; extractedText: string }>(cacheKey);
         if (cached) return res.status(200).json(cached);
 
         const quota = await checkAndConsumeQuota(userId);
@@ -125,78 +130,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
           });
         }
-        const result = await callClaudeTool({
+        const result = await callClaudeTool<{ title: string; extractedText: string }>({
           system:
             "Tu es un professeur qui rédige des leçons complètes, claires et fidèles au programme " +
-            "scolaire français, puis prépare du matériel de révision à partir de cette leçon.",
+            "scolaire français.",
           userText:
             `Rédige une leçon complète sur le chapitre "${topic}" du programme de ${subject} en ${grade} ` +
             "(programme scolaire français officiel).\n\n" +
-            "Génère :\n" +
             `1. "title" : un titre court pour la leçon.\n` +
             `2. "extractedText" : le cours complet, structuré en paragraphes clairs (définitions, ` +
             "explications, exemples, formules si pertinent), comme un vrai cours qu'un professeur " +
             "donnerait à ses élèves. Mets en évidence les mots-clés et notions importantes en les " +
             "entourant de doubles astérisques, par exemple **mot-clé** (comme en Markdown), sans en " +
-            "abuser (quelques mots par paragraphe).\n" +
-            `3. "lessonCards" (6 cartes) : des flashcards qui RÉ-EXPLIQUENT la leçon notion par notion, ` +
-            "avec un \"concept\" court et une \"explanation\" claire (2 à 4 phrases).\n" +
-            `4. "qcm" (8 questions) : des questions à choix multiples avec 4 options et une seule bonne ` +
-            "réponse (correctIndex entre 0 et 3), avec une courte explication.\n" +
-            `5. "flashcards" (8 cartes) : des questions/réponses courtes pour la mémorisation par cœur.\n` +
-            `6. "exercises" (5 questions) : des questions ouvertes avec leur "idealAnswer" (réponse de ` +
-            "référence) pour corriger la réponse rédigée par l'élève.\n\n" +
+            "abuser (quelques mots par paragraphe).\n\n" +
             "Reste fidèle au niveau scolaire demandé, sans être ni trop simple ni trop avancé.",
           tool: {
             name: "save_curriculum_lesson",
-            description: "Enregistre la leçon complète générée avec son matériel de révision.",
+            description: "Enregistre la leçon générée.",
             input_schema: {
               type: "object",
               properties: {
                 title: { type: "string" },
                 extractedText: { type: "string" },
-                lessonCards: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: { concept: { type: "string" }, explanation: { type: "string" } },
-                    required: ["concept", "explanation"],
-                  },
-                },
-                qcm: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      question: { type: "string" },
-                      options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
-                      correctIndex: { type: "integer", minimum: 0, maximum: 3 },
-                      explanation: { type: "string" },
-                    },
-                    required: ["question", "options", "correctIndex"],
-                  },
-                },
-                flashcards: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: { question: { type: "string" }, answer: { type: "string" } },
-                    required: ["question", "answer"],
-                  },
-                },
-                exercises: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: { question: { type: "string" }, idealAnswer: { type: "string" } },
-                    required: ["question", "idealAnswer"],
-                  },
-                },
               },
-              required: ["title", "extractedText", "lessonCards", "qcm", "flashcards", "exercises"],
+              required: ["title", "extractedText"],
             },
           },
-          maxTokens: 8192,
+          maxTokens: 3072,
         });
         await setCached(cacheKey, result);
         res.setHeader("X-Quota-Remaining", String(quota.remaining));

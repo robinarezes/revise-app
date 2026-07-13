@@ -1,4 +1,3 @@
-import type { ExerciseQuestion, FlashCard, LessonCard, QcmQuestion } from "../types";
 import { callBackend } from "./backendClient";
 
 export type CurriculumSubjects = { subjects: string[] };
@@ -6,10 +5,6 @@ export type CurriculumTopics = { topics: string[] };
 export type CurriculumLesson = {
   title: string;
   extractedText: string;
-  lessonCards: LessonCard[];
-  qcm: QcmQuestion[];
-  flashcards: FlashCard[];
-  exercises: ExerciseQuestion[];
 };
 
 // The curriculum feature always goes through the shared backend, since its
