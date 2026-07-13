@@ -232,19 +232,57 @@
 .subject-card,
 .lesson-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 18px;
   padding: 14px;
+  gap: 10px;
+  box-shadow: 0 3px 0 var(--border);
+}
+
+.lesson-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lesson-card-open {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
   gap: 14px;
+  background: none;
+  border: none;
+  padding: 0;
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  width: 100%;
   text-align: left;
   font-family: inherit;
-  box-shadow: 0 3px 0 var(--border);
+}
+
+.lesson-card-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.lesson-action-btn {
+  flex: 1;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.lesson-action-btn:active {
+  transform: translateY(1px);
 }
 
 .subject-icon {
@@ -289,6 +327,14 @@
   background: var(--border);
   object-fit: cover;
   flex-shrink: 0;
+}
+
+.lesson-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+  font-size: 24px;
 }
 
 .empty-state {

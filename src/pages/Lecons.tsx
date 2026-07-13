@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
-import { PhotoImage } from "../components/PhotoImage";
+import { LessonCard } from "../components/LessonCard";
 import { deleteLesson, getLessons, getSubjects } from "../db/db";
 import type { Lesson, Subject } from "../types";
 
@@ -43,38 +43,15 @@ export default function LeconsPage() {
       ) : (
         <div className="content">
           <div className="card-list">
-            {lessons?.map((lesson) => {
-              const date = new Date(lesson.createdAt).toLocaleDateString("fr-FR", {
-                day: "numeric",
-                month: "short",
-              });
-              const subjectName = subjectsById[lesson.subjectId]?.name ?? "";
-              return (
-                <div key={lesson.id} className="lesson-row">
-                  <button className="lesson-card" onClick={() => navigate(`/lecon/${lesson.id}`)}>
-                    {lesson.photoIds[0] ? (
-                      <PhotoImage photoId={lesson.photoIds[0]} className="lesson-thumb" />
-                    ) : (
-                      <div className="lesson-thumb" />
-                    )}
-                    <div className="card-text">
-                      <p className="card-name">{lesson.title}</p>
-                      <p className="card-meta">
-                        {subjectName ? `${subjectName} · ` : ""}
-                        {date}
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    className="lesson-delete-btn"
-                    onClick={() => handleDelete(lesson)}
-                    aria-label="Supprimer"
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
+            {lessons?.map((lesson) => (
+              <LessonCard
+                key={lesson.id}
+                lesson={lesson}
+                subjectName={subjectsById[lesson.subjectId]?.name}
+                onClick={() => navigate(`/lecon/${lesson.id}`)}
+                onDelete={() => handleDelete(lesson)}
+              />
+            ))}
           </div>
         </div>
       )}

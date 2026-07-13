@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getLesson, getQuizSet, saveQuizSet } from "../db/db";
@@ -7,9 +7,13 @@ import { BackendError } from "../services/backendClient";
 import { generateQuiz } from "../services/generateQuiz";
 import type { Lesson, QuizSet } from "../types";
 
+const AUTO_MODES = new Set(["exercice", "qcm", "flashcards", "apprendre", "demander"]);
+
 export default function RevisionPage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const autoMode = searchParams.get("auto");
   const [lesson, setLesson] = useState<Lesson | undefined>();
   const [quizSet, setQuizSet] = useState<QuizSet | undefined>();
   const [loading, setLoading] = useState(true);
@@ -51,6 +55,19 @@ export default function RevisionPage() {
       setGenerating(false);
     }
   }
+
+  // Accès direct depuis la carte de leçon ("Exercice") : génère le contenu
+  // au besoin puis saute directement dans le mode demandé, sans passer par
+  // ce choix intermédiaire.
+  useEffect(() => {
+    if (!autoMode || !AUTO_MODES.has(autoMode) || loading || generating || !lesson) return;
+    if (!quizSet) {
+      handleGenerate();
+      return;
+    }
+    navigate(`/revision/${leconId}/${autoMode}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMode, loading, generating, quizSet, lesson, leconId]);
 
   if (loading) return <div className="screen" />;
   if (!lesson) {
