@@ -6,7 +6,7 @@ import { ToggleSwitch } from "../components/ToggleSwitch";
 import { GRADES, type Grade } from "../grade";
 import { LANGUAGES, type Language } from "../languages";
 import { useProfile } from "../ProfileContext";
-import { openBillingPortal } from "../services/subscription";
+import { openBillingPortal, redeemPremiumCode } from "../services/subscription";
 
 type Editing = "grade" | "lv1" | "lv2" | null;
 
@@ -20,6 +20,9 @@ export default function SettingsPage() {
   const [portalError, setPortalError] = useState<string | null>(null);
   const [username, setUsername] = useState(profile?.username ?? "");
   const [usernameSaved, setUsernameSaved] = useState(false);
+  const [premiumCode, setPremiumCode] = useState("");
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   useEffect(() => {
     setUsername(profile?.username ?? "");
@@ -39,6 +42,21 @@ export default function SettingsPage() {
     const timer = setTimeout(() => refetchProfile(), 2500);
     return () => clearTimeout(timer);
   }, [searchParams, isPremium, refetchProfile]);
+
+  async function handleRedeemCode() {
+    if (!premiumCode.trim()) return;
+    setCodeLoading(true);
+    setCodeError(null);
+    try {
+      await redeemPremiumCode(premiumCode);
+      setPremiumCode("");
+      await refetchProfile();
+    } catch (e) {
+      setCodeError(e instanceof Error ? e.message : "Erreur inconnue.");
+    } finally {
+      setCodeLoading(false);
+    }
+  }
 
   async function handleManageSubscription() {
     setPortalLoading(true);
@@ -182,6 +200,27 @@ export default function SettingsPage() {
             <button className="btn btn-primary btn-block" onClick={() => navigate("/premium")}>
               ⭐ Passer à Premium
             </button>
+
+            <label className="field-label" style={{ marginTop: 12 }}>
+              Un code premium ?
+            </label>
+            {codeError ? (
+              <p className="hint" style={{ color: "var(--danger)" }}>
+                {codeError}
+              </p>
+            ) : null}
+            <div className="actions-row">
+              <input
+                type="text"
+                value={premiumCode}
+                onChange={(e) => setPremiumCode(e.target.value)}
+                placeholder="Ton code"
+                style={{ flex: 1 }}
+              />
+              <button className="link-btn" onClick={handleRedeemCode} disabled={codeLoading}>
+                {codeLoading ? "..." : "Valider"}
+              </button>
+            </div>
           </>
         )}
 

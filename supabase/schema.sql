@@ -134,6 +134,19 @@ alter table public.daily_quiz_results enable row level security;
 create policy "daily_quiz_results_all_own" on public.daily_quiz_results
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- 4ter. Codes premium à usage unique ----------------------------------------
+
+create table public.premium_codes (
+  code text primary key,
+  created_at timestamptz not null default now(),
+  redeemed_by uuid references auth.users(id) on delete set null,
+  redeemed_at timestamptz
+);
+
+alter table public.premium_codes enable row level security;
+
+-- Aucune policy : accessible uniquement depuis le serveur (service_role).
+
 -- 5. Stockage des photos de leçons ------------------------------------------
 
 insert into storage.buckets (id, name, public)

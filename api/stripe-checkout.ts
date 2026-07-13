@@ -20,6 +20,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const supabase = getServiceClient();
+
+    if (action === "redeem-code") {
+      const { code } = req.body as { code?: string };
+      const normalized = (code ?? "").trim().toUpperCase();
+      if (!normalized) {
+        return res.status(400).json({ error: "bad_request", message: "Code manquant." });
+      }
+
+      const { data: codeRow } = await supabase
+        .from("premium_codes")
+        .select("code, redeemed_by")
+        .eq("code", normalized)
+        .maybeSingle();
+
+      if (!codeRow || (codeRow as { redeemed_by: string | null }).redeemed_by) {
+        return res.status(400).json({ error: "invalid_code", message: "Code invalide ou déjà utilisé." });
+      }
+
+      await supabase
+        .from("premium_codes")
+        .update({ redeemed_by: userId, redeemed_at: new Date().toISOString() })
+        .eq("code", normalized);
+      await supabase.from("profiles").update({ subscription_status: "active" }).eq("id", userId);
+
+      return res.status(200).json({ ok: true });
+    }
+
     const stripe = getStripe();
     const origin =
       (typeof req.headers.origin === "string" && req.headers.origin) || `https://${req.headers.host}`;
