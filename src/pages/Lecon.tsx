@@ -5,9 +5,10 @@ import { HighlightedText } from "../components/HighlightedText";
 import { NotFoundScreen } from "../components/NotFoundScreen";
 import { PhotoImage } from "../components/PhotoImage";
 import { SpeakButton } from "../components/SpeakButton";
-import { deleteLesson, getLesson, saveSimplifiedText } from "../db/db";
+import { deleteLesson, getLesson, saveSimplifiedText, saveSummaryText } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { simplifyLesson } from "../services/simplifyLesson";
+import { summarizeLesson } from "../services/summarizeLesson";
 import type { Lesson } from "../types";
 
 export default function LeconPage() {
@@ -19,6 +20,8 @@ export default function LeconPage() {
   const [notFound, setNotFound] = useState(false);
   const [simplifying, setSimplifying] = useState(false);
   const [simplifyError, setSimplifyError] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const xpEarned = (location.state as { xpEarned?: number } | null)?.xpEarned;
   const dyslexiaMode = profile?.dyslexia_mode ?? false;
 
@@ -28,6 +31,30 @@ export default function LeconPage() {
       if (!l) setNotFound(true);
     });
   }, [id]);
+
+  // Résumé très court affiché par défaut (la leçon complète reste
+  // disponible via "Développer la leçon"), généré une seule fois par leçon.
+  useEffect(() => {
+    if (!lesson || lesson.summaryText) return;
+    let cancelled = false;
+    setSummarizing(true);
+    summarizeLesson({ lessonTitle: lesson.title, lessonText: lesson.extractedText })
+      .then(async (result) => {
+        await saveSummaryText(lesson.id, result.summaryText);
+        if (!cancelled) {
+          setLesson((l) => (l ? { ...l, summaryText: result.summaryText } : l));
+        }
+      })
+      .catch(() => {
+        // Pas grave : on retombe simplement sur le texte complet.
+      })
+      .finally(() => {
+        if (!cancelled) setSummarizing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lesson?.id, lesson?.summaryText]);
 
   useEffect(() => {
     if (!lesson || !dyslexiaMode || lesson.simplifiedText) return;
@@ -68,8 +95,13 @@ export default function LeconPage() {
   }
   if (!lesson) return <div className="screen" />;
 
-  const showSimplified = dyslexiaMode && lesson.simplifiedText;
-  const displayedText = showSimplified ? lesson.simplifiedText! : lesson.extractedText;
+  const showSimplified = dyslexiaMode && !!lesson.simplifiedText && !expanded;
+  const showSummary = !expanded && !showSimplified && !!lesson.summaryText;
+  const displayedText = showSimplified
+    ? lesson.simplifiedText!
+    : showSummary
+      ? lesson.summaryText!
+      : lesson.extractedText;
 
   return (
     <div className="screen">
@@ -86,21 +118,36 @@ export default function LeconPage() {
         </div>
 
         <p className="section-label">
-          {showSimplified ? "Version simplifiée" : "Contenu extrait"}
+          {showSimplified ? "Version simplifiée" : showSummary ? "Résumé" : "Contenu complet"}
         </p>
         {dyslexiaMode && simplifying ? (
           <p className="hint">✨ Simplification de la leçon en cours...</p>
+        ) : null}
+        {!dyslexiaMode && summarizing && !lesson.summaryText ? (
+          <p className="hint">✨ Résumé de la leçon en cours...</p>
         ) : null}
         {simplifyError ? <p className="hint">{simplifyError}</p> : null}
         <HighlightedText text={displayedText} />
         {dyslexiaMode ? <SpeakButton text={displayedText} /> : null}
 
-        <button
-          className="btn btn-primary btn-block"
-          onClick={() => navigate(`/revision/${lesson.id}`)}
-        >
-          Réviser cette leçon
-        </button>
+        <div className="actions-row">
+          <button
+            className="btn btn-primary"
+            style={{ flex: 1 }}
+            onClick={() => navigate(`/revision/${lesson.id}`)}
+          >
+            Réviser cette leçon
+          </button>
+          {lesson.summaryText ? (
+            <button
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => setExpanded((e) => !e)}
+            >
+              {expanded ? "📕 Résumer" : "📖 Développer"}
+            </button>
+          ) : null}
+        </div>
 
         <button className="btn btn-secondary btn-block" onClick={() => navigate("/")}>
           🏠 Retour à l'accueil

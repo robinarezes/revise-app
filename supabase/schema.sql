@@ -101,6 +101,7 @@ create table public.lessons (
   title text not null,
   extracted_text text not null default '',
   simplified_text text,
+  summary_text text,
   photo_paths text[] not null default '{}',
   created_at timestamptz not null default now()
 );

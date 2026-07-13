@@ -303,6 +303,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(result);
       }
 
+      case "summarize": {
+        const { lessonTitle, lessonText } = req.body as { lessonTitle: string; lessonText: string };
+        if (!lessonText) {
+          return res.status(400).json({ error: "bad_request", message: "Leçon manquante." });
+        }
+        // Même leçon (surtout celles venant de Programme, partagées entre
+        // utilisateurs) -> même résumé, pas besoin de re-générer.
+        const summaryCacheKey = `summary:${createHash("sha256").update(lessonText).digest("hex")}`;
+        const cachedSummary = await getCached<{ summaryText: string }>(summaryCacheKey);
+        if (cachedSummary) return res.status(200).json(cachedSummary);
+
+        const quota = await checkAndConsumeQuota(userId);
+        if (!quota.allowed) {
+          return res.status(429).json({
+            error: "quota_exceeded",
+            message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
+          });
+        }
+        const result = await callClaudeTool<{ summaryText: string }>({
+          system:
+            "Tu résumes des leçons scolaires à l'essentiel pour un élève pressé, sans rien inventer et " +
+            "sans perdre les informations vraiment importantes." +
+            NO_LATEX,
+          userText:
+            `Leçon : "${lessonTitle}"\n\nContenu complet :\n${lessonText}\n\n` +
+            "Rédige un résumé très court (4 à 8 puces maximum, chacune une phrase courte) qui ne garde " +
+            "que le principal : définitions clés, notions essentielles, formules ou dates si vraiment " +
+            "importantes. Utilise des tirets \"- \" en début de ligne. Mets en évidence les mots-clés " +
+            "avec **le mot** (comme en Markdown). Pas d'introduction ni de conclusion, juste les puces.",
+          tool: {
+            name: "save_summary",
+            description: "Enregistre le résumé de la leçon.",
+            input_schema: {
+              type: "object",
+              properties: { summaryText: { type: "string" } },
+              required: ["summaryText"],
+            },
+          },
+          maxTokens: 768,
+        });
+        await setCached(summaryCacheKey, result);
+        res.setHeader("X-Quota-Remaining", String(quota.remaining));
+        return res.status(200).json(result);
+      }
+
       case "simplify": {
         const { lessonTitle, lessonText } = req.body as { lessonTitle: string; lessonText: string };
         if (!lessonText) {
@@ -411,17 +456,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
           });
         }
+        const isSchoolSubject = !["culture générale", "culture generale"].includes(
+          subject.trim().toLowerCase()
+        );
         const result = await callClaudeTool({
           system:
             "Tu es un professeur qui prépare un petit quiz quotidien de révision, sur des notions " +
-            "de base, pour un élève." +
+            "de base, pour un élève. Le quiz est renouvelé chaque jour : deux quiz générés à des dates " +
+            "différentes ne doivent jamais se ressembler, même pour la même matière et le même niveau." +
             NO_LATEX,
           userText:
-            `Génère un mini quiz quotidien de 5 questions à choix multiples en ${subject}, pour un ` +
-            `élève de ${grade} (programme scolaire français), portant sur des notions de base et ` +
-            "fondamentales de cette matière (pas forcément liées à une leçon précise). Les questions " +
-            "doivent être simples, variées, et rapides à répondre. 4 options par question, une seule " +
-            "bonne réponse (correctIndex entre 0 et 3), avec une courte explication.",
+            `Nous sommes le ${todayStr()}. Génère le quiz quotidien du jour : 5 questions à choix ` +
+            `multiples ${isSchoolSubject ? `en ${subject}` : "de culture générale (histoire, géographie, sciences, actualité, arts, sport, monde...)"}` +
+            `, pour un élève de ${grade}${isSchoolSubject ? " (programme scolaire français)" : ""}. ` +
+            "Choisis des questions variées et surprenantes plutôt que les plus évidentes/classiques du " +
+            "sujet, pour que ce quiz soit vraiment différent de celui d'hier et de demain : change les " +
+            "notions abordées, l'angle des questions et leur ordre de difficulté à chaque génération. " +
+            "Les questions doivent rester simples et rapides à répondre. 4 options par question, une " +
+            "seule bonne réponse (correctIndex entre 0 et 3), avec une courte explication.",
           tool: {
             name: "save_daily_quiz",
             description: "Enregistre le quiz quotidien généré.",
@@ -474,11 +526,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             "ses connaissances générales dans une matière." +
             NO_LATEX,
           userText:
-            `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
-            "(programme scolaire français), couvrant des notions variées de cette matière à ce niveau " +
-            "(différentes de questions trop basiques). 4 options par question, une seule bonne réponse " +
-            "(correctIndex entre 0 et 3), avec une courte explication. Varie la difficulté et les sujets " +
-            "abordés d'une question à l'autre.",
+            (["culture générale", "culture generale"].includes(subject.trim().toLowerCase())
+              ? `Génère un quiz de 8 questions à choix multiples de culture générale (histoire, ` +
+                `géographie, sciences, actualité, arts, sport, monde...), adapté à un jeune de ${grade}.`
+              : `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
+                "(programme scolaire français), couvrant des notions variées de cette matière à ce niveau " +
+                "(différentes de questions trop basiques).") +
+            " 4 options par question, une seule bonne réponse (correctIndex entre 0 et 3), avec une " +
+            "courte explication. Varie la difficulté et les sujets abordés d'une question à l'autre.",
           tool: {
             name: "save_general_quiz",
             description: "Enregistre le quiz généré.",

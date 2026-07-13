@@ -11,6 +11,7 @@ export type Lesson = {
   photoIds: string[];
   extractedText: string;
   simplifiedText: string | null;
+  summaryText: string | null;
   createdAt: number;
 };
 

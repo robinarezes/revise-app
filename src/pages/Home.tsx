@@ -11,6 +11,8 @@ import type { Subject } from "../types";
 const DAILY_QUIZ_SUBJECTS = [
   { name: "Mathématiques", label: "Maths", icon: "🧮" },
   { name: "Français", label: "Français", icon: "📖" },
+  { name: "Histoire", label: "Histoire", icon: "🏛️" },
+  { name: "Culture générale", label: "Culture G", icon: "🧠" },
 ];
 
 function todayStr(): string {
@@ -124,7 +126,21 @@ export default function HomePage() {
           <span className="quiz-general-icon">🏆</span>
           <div className="card-text">
             <p className="card-name">Quiz général</p>
-            <p className="mode-btn-subtitle">Gagne des points sur toutes les matières, à volonté</p>
+            <p className="mode-btn-subtitle">Choisis une matière et gagne des points, à volonté</p>
+          </div>
+          <span className="chevron">›</span>
+        </button>
+
+        <button
+          className="quiz-general-card quiz-culture-card"
+          onClick={() => navigate(`/quiz-general/${encodeURIComponent("Culture générale")}`)}
+        >
+          <span className="quiz-general-icon">🧠</span>
+          <div className="card-text">
+            <p className="card-name">Culture Générale</p>
+            <p className="mode-btn-subtitle">
+              Histoire, géo, sciences, actu... teste-toi hors du programme scolaire
+            </p>
           </div>
           <span className="chevron">›</span>
         </button>

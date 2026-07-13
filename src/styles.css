@@ -1253,7 +1253,8 @@ input[type="password"]:focus {
 /* --- Daily quiz widget --- */
 
 .daily-quiz-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 8px;
 }
@@ -1458,6 +1459,15 @@ input[type="password"]:focus {
 .quiz-general-icon {
   font-size: 36px;
   animation: trophy-bounce 2.4s ease-in-out infinite;
+}
+
+.quiz-culture-card {
+  background: linear-gradient(135deg, #00c2a8, var(--blue));
+  box-shadow: 0 4px 0 #00806e;
+}
+
+.quiz-culture-card:active {
+  box-shadow: 0 1px 0 #00806e;
 }
 
 @keyframes trophy-bounce {
