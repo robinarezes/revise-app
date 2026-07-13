@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { NotFoundScreen } from "../components/NotFoundScreen";
 import { getLesson, getQuizSet, saveQuizSet } from "../db/db";
+import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { generateQuiz } from "../services/generateQuiz";
 import type { Lesson, QuizSet } from "../types";
@@ -12,6 +13,7 @@ const AUTO_MODES = new Set(["exercice", "qcm", "flashcards", "apprendre", "deman
 export default function RevisionPage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
+  const { isPremium } = useProfile();
   const [searchParams] = useSearchParams();
   const autoMode = searchParams.get("auto");
   const [lesson, setLesson] = useState<Lesson | undefined>();
@@ -150,6 +152,12 @@ export default function RevisionPage() {
             <p className="mode-btn-title">✍️ Exercice</p>
             <p className="mode-btn-subtitle">
               {quizSet.exercises.length} questions ouvertes corrigées par l'IA
+            </p>
+          </button>
+          <button className="mode-btn" onClick={() => navigate(`/revision/${lesson.id}/schema`)}>
+            <p className="mode-btn-title">🧩 Schéma {isPremium ? "" : "⭐"}</p>
+            <p className="mode-btn-subtitle">
+              {isPremium ? "Un schéma généré par l'IA pour visualiser la leçon" : "Fonctionnalité Premium"}
             </p>
           </button>
           <button className="link-btn" onClick={handleGenerate}>

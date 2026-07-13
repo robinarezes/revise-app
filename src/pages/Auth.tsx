@@ -1,45 +1,86 @@
 import { useState } from "react";
 import { useAuth } from "../AuthContext";
+import { supabase } from "../supabaseClient";
+
+type IdentifierType = "email" | "pseudo";
+
+// Supabase accounts always need an email under the hood. For "pseudo"
+// accounts we derive one deterministically from the chosen username, so
+// login can recompute the same address without ever storing a lookup
+// table or exposing real emails.
+function pseudoToEmail(pseudo: string): string {
+  const slug = pseudo
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+  return `${slug}@pseudo.revise-app.local`;
+}
 
 export default function AuthPage() {
   const { signUp, signIn } = useAuth();
   const [mode, setMode] = useState<"signup" | "login">("login");
-  const [email, setEmail] = useState("");
+  const [identifierType, setIdentifierType] = useState<IdentifierType>("email");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmSent, setConfirmSent] = useState(false);
 
   async function handleSubmit() {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setError("Renseigne un email et un mot de passe.");
+    const trimmed = identifier.trim();
+    if (!trimmed || !password) {
+      setError(identifierType === "email" ? "Renseigne un email et un mot de passe." : "Renseigne un pseudo et un mot de passe.");
       return;
     }
     if (password.length < 6) {
       setError("Le mot de passe doit faire au moins 6 caractères.");
       return;
     }
+    if (identifierType === "pseudo" && pseudoToEmail(trimmed) === "@pseudo.revise-app.local") {
+      setError("Ce pseudo doit contenir au moins une lettre ou un chiffre.");
+      return;
+    }
+
+    const resolvedEmail = identifierType === "email" ? trimmed : pseudoToEmail(trimmed);
+    const pseudoForProfile = identifierType === "pseudo" ? trimmed : undefined;
+
     setLoading(true);
     setError(null);
     const result =
-      mode === "signup" ? await signUp(trimmedEmail, password) : await signIn(trimmedEmail, password);
+      mode === "signup"
+        ? await signUp(resolvedEmail, password, pseudoForProfile)
+        : await signIn(resolvedEmail, password);
     setLoading(false);
     if (result.error) {
       if (mode === "signup" && /already registered|already exists/i.test(result.error)) {
-        setError("Un compte existe déjà avec cet email. Connecte-toi plutôt ci-dessous.");
+        setError(
+          identifierType === "pseudo"
+            ? "Ce pseudo est déjà pris. Connecte-toi plutôt, ou choisis-en un autre."
+            : "Un compte existe déjà avec cet email. Connecte-toi plutôt ci-dessous."
+        );
         setMode("login");
         return;
       }
       if (mode === "login" && /invalid login credentials/i.test(result.error)) {
-        setError("Email ou mot de passe incorrect.");
+        setError(
+          identifierType === "pseudo" ? "Pseudo ou mot de passe incorrect." : "Email ou mot de passe incorrect."
+        );
         return;
       }
       setError(result.error);
       return;
     }
     if (mode === "signup") {
-      setConfirmSent(true);
+      // "Confirm email" est désactivé sur ce projet : la session est déjà
+      // active à ce stade. On ne montre l'écran "vérifie ta boîte mail" que
+      // si ça change un jour (ou pour un compte "pseudo", qui n'a de toute
+      // façon pas de vraie adresse à vérifier).
+      const { data } = await supabase.auth.getSession();
+      if (!data.session && identifierType === "email") {
+        setConfirmSent(true);
+      }
     }
   }
 
@@ -50,7 +91,7 @@ export default function AuthPage() {
           <span className="celebrate-emoji">📬</span>
           <p className="title-md">Vérifie ta boîte mail</p>
           <p className="subtitle">
-            On t'a envoyé un lien de confirmation à {email}. Clique dessus pour activer ton
+            On t'a envoyé un lien de confirmation à {identifier}. Clique dessus pour activer ton
             compte, puis reviens te connecter ici.
           </p>
           <button
@@ -78,11 +119,32 @@ export default function AuthPage() {
             : "Retrouve tes leçons et ta progression."}
         </p>
 
+        <div className="option-pills" style={{ justifyContent: "center" }}>
+          <button
+            className={`option-pill ${identifierType === "email" ? "option-pill-selected" : ""}`}
+            onClick={() => {
+              setIdentifierType("email");
+              setError(null);
+            }}
+          >
+            ✉️ Email
+          </button>
+          <button
+            className={`option-pill ${identifierType === "pseudo" ? "option-pill-selected" : ""}`}
+            onClick={() => {
+              setIdentifierType("pseudo");
+              setError(null);
+            }}
+          >
+            😀 Pseudo
+          </button>
+        </div>
+
         <input
           type="text"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder={identifierType === "email" ? "Email" : "Pseudo"}
           autoCapitalize="off"
           autoCorrect="off"
         />

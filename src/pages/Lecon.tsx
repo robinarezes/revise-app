@@ -93,7 +93,7 @@ export default function LeconPage() {
         ) : null}
         {simplifyError ? <p className="hint">{simplifyError}</p> : null}
         <HighlightedText text={displayedText} />
-        <SpeakButton text={displayedText} />
+        {dyslexiaMode ? <SpeakButton text={displayedText} /> : null}
 
         <button
           className="btn btn-primary btn-block"

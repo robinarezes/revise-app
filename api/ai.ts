@@ -3,6 +3,7 @@ import { callClaudeTool, type ImageContent } from "./_lib/anthropic.js";
 import { requireUserId } from "./_lib/auth.js";
 import { getCached, setCached } from "./_lib/cache.js";
 import { checkAndConsumeQuota } from "./_lib/quota.js";
+import { getServiceClient } from "./_lib/supabaseService.js";
 
 // Every "generation" endpoint used to be its own Vercel serverless function,
 // but a hobby-plan project only gets a limited number of functions — once we
@@ -320,6 +321,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(result);
       }
 
+      case "diagram": {
+        const { lessonTitle, lessonText } = req.body as { lessonTitle: string; lessonText: string };
+        if (!lessonTitle || !lessonText) {
+          return res.status(400).json({ error: "bad_request", message: "Leçon manquante." });
+        }
+        const { data: profile } = await getServiceClient()
+          .from("profiles")
+          .select("subscription_status")
+          .eq("id", userId)
+          .maybeSingle();
+        if ((profile as { subscription_status?: string } | null)?.subscription_status !== "active") {
+          return res.status(403).json({
+            error: "premium_required",
+            message: "La création de schémas est réservée aux membres Premium.",
+          });
+        }
+        const quota = await checkAndConsumeQuota(userId);
+        if (!quota.allowed) {
+          return res.status(429).json({
+            error: "quota_exceeded",
+            message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
+          });
+        }
+        const result = await callClaudeTool<{ title: string; mermaid: string }>({
+          system:
+            "Tu crées des schémas pédagogiques au format Mermaid.js pour aider un élève à visualiser " +
+            "une leçon (flowchart, carte mentale ou diagramme selon ce qui convient le mieux). " +
+            "Le code Mermaid doit être valide et se limiter aux notions présentes dans la leçon.",
+          userText:
+            `Leçon : "${lessonTitle}"\n\nContenu de la leçon :\n${lessonText}\n\n` +
+            "Crée un schéma qui résume visuellement les notions clés et leurs liens (utilise un " +
+            "flowchart Mermaid : \"graph TD\" ou \"graph LR\", avec des nœuds courts et des flèches " +
+            "annotées si utile). Réponds uniquement avec le code Mermaid valide (sans balises markdown " +
+            "``` autour), et un titre court pour ce schéma.",
+          tool: {
+            name: "save_diagram",
+            description: "Enregistre le schéma généré.",
+            input_schema: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                mermaid: { type: "string", description: "Code Mermaid.js valide, sans balises markdown." },
+              },
+              required: ["title", "mermaid"],
+            },
+          },
+          maxTokens: 2048,
+        });
+        res.setHeader("X-Quota-Remaining", String(quota.remaining));
+        return res.status(200).json(result);
+      }
+
       case "daily-quiz": {
         const { grade, subject } = req.body as { grade: string; subject: string };
         if (!grade || !subject) {
@@ -434,6 +487,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
         return res.status(200).json(result);
+      }
+
+      case "tts": {
+        const { text, voice } = req.body as { text: string; voice?: string };
+        if (!text) {
+          return res.status(400).json({ error: "bad_request", message: "Texte manquant." });
+        }
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          return res.status(500).json({
+            error: "not_configured",
+            message: "La voix n'est pas encore configurée sur le serveur.",
+          });
+        }
+        const quota = await checkAndConsumeQuota(userId);
+        if (!quota.allowed) {
+          return res.status(429).json({
+            error: "quota_exceeded",
+            message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain ou passe en illimité.`,
+          });
+        }
+        // Strip the **keyword** markup used for highlighting so it isn't
+        // read aloud as "étoile étoile", and stay under OpenAI's ~4096
+        // character input limit for a single TTS request.
+        const cleaned = text.replace(/\*\*([^*]+)\*\*/g, "$1").slice(0, 4000);
+        const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "tts-1",
+            input: cleaned,
+            voice: voice || "alloy",
+          }),
+        });
+        if (!openaiRes.ok) {
+          const errText = await openaiRes.text();
+          return res.status(502).json({
+            error: "upstream_error",
+            message: `Erreur de la voix (${openaiRes.status}) : ${errText.slice(0, 200)}`,
+          });
+        }
+        const audioBuffer = Buffer.from(await openaiRes.arrayBuffer());
+        res.setHeader("Content-Type", "audio/mpeg");
+        res.setHeader("X-Quota-Remaining", String(quota.remaining));
+        return res.status(200).send(audioBuffer);
       }
 
       default:

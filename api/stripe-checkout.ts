@@ -23,15 +23,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (action === "redeem-code") {
       const { code } = req.body as { code?: string };
-      const normalized = (code ?? "").trim().toUpperCase();
+      const normalized = (code ?? "").trim();
       if (!normalized) {
         return res.status(400).json({ error: "bad_request", message: "Code manquant." });
       }
+      // Case-insensitive match: codes can be created with any casing in
+      // Supabase, and students shouldn't have to type them exactly.
+      const escaped = normalized.replace(/[%_\\]/g, (m) => `\\${m}`);
 
       const { data: codeRow } = await supabase
         .from("premium_codes")
         .select("code, redeemed_by")
-        .eq("code", normalized)
+        .ilike("code", escaped)
         .maybeSingle();
 
       if (!codeRow || (codeRow as { redeemed_by: string | null }).redeemed_by) {
@@ -41,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await supabase
         .from("premium_codes")
         .update({ redeemed_by: userId, redeemed_at: new Date().toISOString() })
-        .eq("code", normalized);
+        .eq("code", (codeRow as { code: string }).code);
       await supabase.from("profiles").update({ subscription_status: "active" }).eq("id", userId);
 
       return res.status(200).json({ ok: true });

@@ -21,9 +21,10 @@ async function doFetch(path: string, body: unknown, token: string): Promise<Resp
   });
 }
 
-// Calls our own /api backend (which holds the shared API key and enforces
-// the free daily quota), authenticated with the current Supabase session.
-export async function callBackend<T>(path: string, body: unknown): Promise<T> {
+// Shared plumbing: attach the session token, retry once on a stale token,
+// and hand back the raw Response (still needs status/error handling by the
+// caller, since the body shape differs between JSON and binary endpoints).
+async function callBackendRaw(path: string, body: unknown): Promise<Response> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) {
@@ -51,10 +52,29 @@ export async function callBackend<T>(path: string, body: unknown): Promise<T> {
     }
   }
 
+  return response;
+}
+
+// Calls our own /api backend (which holds the shared API key and enforces
+// the free daily quota), authenticated with the current Supabase session.
+export async function callBackend<T>(path: string, body: unknown): Promise<T> {
+  const response = await callBackendRaw(path, body);
   const data2 = await response.json().catch(() => ({}));
   if (!response.ok) {
     const code = response.status === 401 ? "unauthenticated" : data2.error;
     throw new BackendError(data2.message ?? `Erreur serveur (${response.status}).`, code);
   }
   return data2 as T;
+}
+
+// Same as callBackend, but for endpoints that return a binary body (audio)
+// instead of JSON.
+export async function callBackendBlob(path: string, body: unknown): Promise<Blob> {
+  const response = await callBackendRaw(path, body);
+  if (!response.ok) {
+    const data2 = await response.json().catch(() => ({}));
+    const code = response.status === 401 ? "unauthenticated" : data2.error;
+    throw new BackendError(data2.message ?? `Erreur serveur (${response.status}).`, code);
+  }
+  return response.blob();
 }

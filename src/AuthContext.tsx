@@ -5,7 +5,7 @@ import { supabase } from "./supabaseClient";
 type AuthContextValue = {
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, username?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 };
@@ -27,8 +27,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  async function signUp(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({ email, password });
+  useEffect(() => {
+    // Mobile browsers throttle/suspend background tabs, so the session's
+    // access token can be stale by the time the user comes back to the app.
+    // Force a refresh check as soon as the tab becomes visible again, before
+    // any page re-fetches its data with a possibly-expired token.
+    function handleVisible() {
+      if (document.visibilityState === "visible") {
+        supabase.auth.getSession();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisible);
+    window.addEventListener("focus", handleVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisible);
+      window.removeEventListener("focus", handleVisible);
+    };
+  }, []);
+
+  async function signUp(email: string, password: string, username?: string) {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (!error && username && data.user) {
+      await supabase.from("profiles").update({ username }).eq("id", data.user.id);
+    }
     return { error: error?.message ?? null };
   }
 

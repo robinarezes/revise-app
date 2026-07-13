@@ -5,10 +5,59 @@ import { BottomNav } from "../components/BottomNav";
 import { ToggleSwitch } from "../components/ToggleSwitch";
 import { GRADES, type Grade } from "../grade";
 import { LANGUAGES, type Language } from "../languages";
+import type { DyslexiaFont, DyslexiaSize, DyslexiaTint } from "../ProfileContext";
 import { useProfile } from "../ProfileContext";
 import { openBillingPortal, redeemPremiumCode } from "../services/subscription";
+import { TTS_VOICES } from "../services/tts";
 
 type Editing = "grade" | "lv1" | "lv2" | null;
+
+const FONT_OPTIONS: { value: DyslexiaFont; label: string }[] = [
+  { value: "system", label: "Standard" },
+  { value: "opendyslexic", label: "OpenDyslexic" },
+  { value: "lexend", label: "Lexend" },
+];
+
+const TINT_OPTIONS: { value: DyslexiaTint; label: string; swatch: string }[] = [
+  { value: "cream", label: "Crème", swatch: "#fbf3e3" },
+  { value: "blue", label: "Bleu", swatch: "#e8f0fe" },
+  { value: "green", label: "Vert", swatch: "#e9f7ea" },
+  { value: "pink", label: "Rose", swatch: "#fdebf1" },
+  { value: "none", label: "Aucune", swatch: "#ffffff" },
+];
+
+const SIZE_OPTIONS: { value: DyslexiaSize; label: string }[] = [
+  { value: "small", label: "Petit" },
+  { value: "medium", label: "Moyen" },
+  { value: "large", label: "Grand" },
+];
+
+function OptionPills<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string; swatch?: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="option-pills">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          className={`option-pill ${opt.value === value ? "option-pill-selected" : ""}`}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.swatch ? (
+            <span className="option-pill-swatch" style={{ background: opt.swatch }} />
+          ) : null}
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { profile, isPremium, updateProfile, refetchProfile } = useProfile();
@@ -23,6 +72,8 @@ export default function SettingsPage() {
   const [premiumCode, setPremiumCode] = useState("");
   const [codeLoading, setCodeLoading] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [prefsError, setPrefsError] = useState<string | null>(null);
 
   useEffect(() => {
     setUsername(profile?.username ?? "");
@@ -30,9 +81,23 @@ export default function SettingsPage() {
 
   async function handleSaveUsername() {
     const trimmed = username.trim();
-    await updateProfile({ username: trimmed || null });
-    setUsernameSaved(true);
-    setTimeout(() => setUsernameSaved(false), 2000);
+    setUsernameError(null);
+    try {
+      await updateProfile({ username: trimmed || null });
+      setUsernameSaved(true);
+      setTimeout(() => setUsernameSaved(false), 2000);
+    } catch (e) {
+      setUsernameError(e instanceof Error ? e.message : "Échec de l'enregistrement.");
+    }
+  }
+
+  async function handlePrefChange(patch: Parameters<typeof updateProfile>[0]) {
+    setPrefsError(null);
+    try {
+      await updateProfile(patch);
+    } catch (e) {
+      setPrefsError(e instanceof Error ? e.message : "Échec de l'enregistrement.");
+    }
   }
 
   useEffect(() => {
@@ -117,6 +182,11 @@ export default function SettingsPage() {
             {usernameSaved ? "✅" : "Enregistrer"}
           </button>
         </div>
+        {usernameError ? (
+          <p className="hint" style={{ color: "var(--danger)" }}>
+            {usernameError}
+          </p>
+        ) : null}
 
         <label className="field-label">Ma classe</label>
         {editing === "grade" ? (
@@ -236,6 +306,57 @@ export default function SettingsPage() {
             onChange={(value) => updateProfile({ dyslexia_mode: value })}
           />
         </div>
+
+        {profile?.dyslexia_mode ? (
+          <>
+            <label className="field-label" style={{ marginTop: 12 }}>
+              Police d'écriture
+            </label>
+            <OptionPills
+              options={FONT_OPTIONS}
+              value={profile.dyslexia_font}
+              onChange={(v) => handlePrefChange({ dyslexia_font: v })}
+            />
+
+            <label className="field-label" style={{ marginTop: 12 }}>
+              Teinte du fond
+            </label>
+            <OptionPills
+              options={TINT_OPTIONS}
+              value={profile.dyslexia_tint}
+              onChange={(v) => handlePrefChange({ dyslexia_tint: v })}
+            />
+
+            <label className="field-label" style={{ marginTop: 12 }}>
+              Taille du texte
+            </label>
+            <OptionPills
+              options={SIZE_OPTIONS}
+              value={profile.dyslexia_size}
+              onChange={(v) => handlePrefChange({ dyslexia_size: v })}
+            />
+
+            <label className="field-label" style={{ marginTop: 12 }}>
+              Voix de lecture
+            </label>
+            <select
+              value={profile.tts_voice}
+              onChange={(e) => handlePrefChange({ tts_voice: e.target.value })}
+              style={{ width: "100%" }}
+            >
+              {TTS_VOICES.map((v) => (
+                <option key={v.value} value={v.value}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+            {prefsError ? (
+              <p className="hint" style={{ color: "var(--danger)" }}>
+                {prefsError}
+              </p>
+            ) : null}
+          </>
+        ) : null}
 
         <button className="link-btn-danger" onClick={handleSignOut}>
           Se déconnecter

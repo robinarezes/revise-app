@@ -1,8 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "./AuthContext";
-import type { Grade } from "./grade";
+import { KIDS_GRADES, type Grade } from "./grade";
 import type { Language } from "./languages";
 import { supabase } from "./supabaseClient";
+
+export type DyslexiaFont = "system" | "opendyslexic" | "lexend";
+export type DyslexiaTint = "none" | "cream" | "blue" | "green" | "pink";
+export type DyslexiaSize = "small" | "medium" | "large";
 
 export type Profile = {
   id: string;
@@ -14,16 +18,34 @@ export type Profile = {
   streak: number;
   last_active_date: string | null;
   dyslexia_mode: boolean;
+  dyslexia_font: DyslexiaFont;
+  dyslexia_tint: DyslexiaTint;
+  dyslexia_size: DyslexiaSize;
+  tts_voice: string;
   subscription_status: string;
 };
+
+type EditablePatch = Partial<
+  Pick<
+    Profile,
+    | "grade"
+    | "lv1"
+    | "lv2"
+    | "dyslexia_mode"
+    | "dyslexia_font"
+    | "dyslexia_tint"
+    | "dyslexia_size"
+    | "tts_voice"
+    | "username"
+  >
+>;
 
 type ProfileContextValue = {
   profile: Profile | null;
   loading: boolean;
   isPremium: boolean;
-  updateProfile: (
-    patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2" | "dyslexia_mode" | "username">>
-  ) => Promise<void>;
+  isKidsMode: boolean;
+  updateProfile: (patch: EditablePatch) => Promise<void>;
   addXp: (amount: number) => Promise<void>;
   recordActivity: () => Promise<void>;
   refetchProfile: () => Promise<void>;
@@ -43,8 +65,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dyslexia-mode", profile?.dyslexia_mode ?? false);
-  }, [profile?.dyslexia_mode]);
+    const root = document.documentElement;
+    root.classList.toggle("dyslexia-mode", profile?.dyslexia_mode ?? false);
+    root.setAttribute("data-dys-font", profile?.dyslexia_font ?? "system");
+    root.setAttribute("data-dys-tint", profile?.dyslexia_tint ?? "cream");
+    root.setAttribute("data-dys-size", profile?.dyslexia_size ?? "medium");
+  }, [profile?.dyslexia_mode, profile?.dyslexia_font, profile?.dyslexia_tint, profile?.dyslexia_size]);
+
+  useEffect(() => {
+    const kids = profile?.grade ? (KIDS_GRADES as readonly string[]).includes(profile.grade) : false;
+    document.documentElement.classList.toggle("kids-mode", kids);
+  }, [profile?.grade]);
 
   async function fetchProfile(userId: string) {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
@@ -92,11 +123,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     await fetchProfile(session.user.id);
   }
 
-  async function updateProfile(
-    patch: Partial<Pick<Profile, "grade" | "lv1" | "lv2" | "dyslexia_mode" | "username">>
-  ) {
+  async function updateProfile(patch: EditablePatch) {
     if (!session) return;
-    await supabase.from("profiles").update(patch).eq("id", session.user.id);
+    const { error } = await supabase.from("profiles").update(patch).eq("id", session.user.id);
+    if (error) throw error;
     setProfile((p) => (p ? { ...p, ...patch } : p));
   }
 
@@ -126,10 +156,22 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }
 
   const isPremium = profile?.subscription_status === "active";
+  const isKidsMode = profile?.grade
+    ? (KIDS_GRADES as readonly string[]).includes(profile.grade)
+    : false;
 
   return (
     <ProfileContext.Provider
-      value={{ profile, loading, isPremium, updateProfile, addXp, recordActivity, refetchProfile }}
+      value={{
+        profile,
+        loading,
+        isPremium,
+        isKidsMode,
+        updateProfile,
+        addXp,
+        recordActivity,
+        refetchProfile,
+      }}
     >
       {children}
     </ProfileContext.Provider>

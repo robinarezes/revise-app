@@ -12,7 +12,7 @@ const XP_FOR_COMPLETING = 5;
 export default function LeconModePage() {
   const { leconId = "" } = useParams();
   const navigate = useNavigate();
-  const { addXp, recordActivity } = useProfile();
+  const { addXp, recordActivity, profile } = useProfile();
   const [cards, setCards] = useState<LessonCard[]>([]);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -105,7 +105,9 @@ export default function LeconModePage() {
           </div>
         </div>
 
-        <SpeakButton text={flipped ? card.explanation : card.concept} />
+        {profile?.dyslexia_mode ? (
+          <SpeakButton text={flipped ? card.explanation : card.concept} />
+        ) : null}
 
         <div className="spacer" />
 

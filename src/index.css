@@ -67,28 +67,71 @@ a {
 
 /* --- Mode dyslexique --- */
 
-html.dyslexia-mode {
+:root {
+  --dys-scale: 1;
+  --dys-font: inherit;
+}
+
+html.dyslexia-mode[data-dys-size="small"] {
+  --dys-scale: 0.9;
+}
+
+html.dyslexia-mode[data-dys-size="large"] {
+  --dys-scale: 1.25;
+}
+
+html.dyslexia-mode[data-dys-font="opendyslexic"] {
+  --dys-font: "OpenDyslexic", -apple-system, sans-serif;
+}
+
+html.dyslexia-mode[data-dys-font="lexend"] {
+  --dys-font: "Lexend", -apple-system, sans-serif;
+}
+
+html.dyslexia-mode[data-dys-tint="cream"] {
   --background: #fbf3e3;
   --surface: #fffaf0;
   --surface-alt: #f5ead2;
   --border: #e6d9b8;
 }
 
+html.dyslexia-mode[data-dys-tint="blue"] {
+  --background: #e8f0fe;
+  --surface: #f3f8ff;
+  --surface-alt: #dbe8fd;
+  --border: #c3d9f8;
+}
+
+html.dyslexia-mode[data-dys-tint="green"] {
+  --background: #e9f7ea;
+  --surface: #f4fbf4;
+  --surface-alt: #dcf1de;
+  --border: #c3e6c6;
+}
+
+html.dyslexia-mode[data-dys-tint="pink"] {
+  --background: #fdebf1;
+  --surface: #fff4f8;
+  --surface-alt: #fbdce8;
+  --border: #f6c3d7;
+}
+
 html.dyslexia-mode body {
+  font-family: var(--dys-font);
   letter-spacing: 0.02em;
   word-spacing: 0.06em;
   line-height: 1.7;
 }
 
 html.dyslexia-mode .extracted-text {
-  font-size: 19px;
+  font-size: calc(19px * var(--dys-scale));
   line-height: 2;
   letter-spacing: 0.02em;
 }
 
 html.dyslexia-mode .question-text,
 html.dyslexia-mode .flash-card-text {
-  font-size: 23px;
+  font-size: calc(23px * var(--dys-scale));
   line-height: 1.9;
   letter-spacing: 0.02em;
 }
@@ -97,7 +140,7 @@ html.dyslexia-mode .chat-bubble,
 html.dyslexia-mode .hint,
 html.dyslexia-mode .subtitle,
 html.dyslexia-mode .verdict-feedback {
-  font-size: 17px;
+  font-size: calc(17px * var(--dys-scale));
   line-height: 1.8;
   letter-spacing: 0.02em;
 }
@@ -105,19 +148,41 @@ html.dyslexia-mode .verdict-feedback {
 html.dyslexia-mode .mode-btn-subtitle,
 html.dyslexia-mode .card-meta,
 html.dyslexia-mode .explanation {
-  font-size: 15px;
+  font-size: calc(15px * var(--dys-scale));
   line-height: 1.7;
   letter-spacing: 0.02em;
 }
 
 html.dyslexia-mode .section-label {
-  font-size: 15px;
+  font-size: calc(15px * var(--dys-scale));
 }
 
 /* La barre de navigation reste compacte : pas de grossissement,
    sinon les libellés débordent de leur emplacement fixe. */
 html.dyslexia-mode .bottom-nav-item {
+  font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
   letter-spacing: normal;
   word-spacing: normal;
   font-size: 10px;
+}
+
+/* --- Mode kids (CP → CM2) : plus grand, plus rond, plus simple --- */
+
+html.kids-mode {
+  --primary: #1cb0f6;
+}
+
+html.kids-mode .card-name,
+html.kids-mode .subject-card .card-name {
+  font-size: 18px;
+}
+
+html.kids-mode .btn {
+  font-size: 18px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+html.kids-mode .bottom-nav-icon {
+  font-size: 26px;
 }

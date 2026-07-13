@@ -823,6 +823,7 @@ input[type="password"]:focus {
   padding: 24px;
   text-align: center;
   box-shadow: 0 3px 0 var(--border);
+  overflow-y: auto;
 }
 
 .flip-card-back {
@@ -1375,4 +1376,53 @@ input[type="password"]:focus {
 
 .toggle-switch.on .toggle-switch-knob {
   transform: translateX(20px);
+}
+
+.option-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.option-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.option-pill-selected {
+  background: var(--success-bg);
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+.option-pill-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.diagram-container {
+  background: #ffffff;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.diagram-container svg {
+  max-width: 100%;
+  height: auto;
 }

@@ -4,6 +4,7 @@ import AuthPage from "./pages/Auth";
 import CapturePage from "./pages/Capture";
 import ChatModePage from "./pages/ChatMode";
 import DailyQuizPage from "./pages/DailyQuiz";
+import DiagramModePage from "./pages/DiagramMode";
 import ExercicePage from "./pages/ExerciceMode";
 import FlashcardsPage from "./pages/FlashcardsMode";
 import GeneralQuizPage from "./pages/GeneralQuiz";
@@ -77,6 +78,7 @@ function AppGate() {
         <Route path="/revision/:leconId/flashcards" element={<FlashcardsPage />} />
         <Route path="/revision/:leconId/exercice" element={<ExercicePage />} />
         <Route path="/revision/:leconId/demander" element={<ChatModePage />} />
+        <Route path="/revision/:leconId/schema" element={<DiagramModePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

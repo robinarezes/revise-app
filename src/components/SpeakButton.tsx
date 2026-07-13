@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useProfile } from "../ProfileContext";
+import { synthesizeSpeech } from "../services/tts";
 
 // Strips the **keyword** markdown-style markup used to highlight key terms,
 // so it isn't read aloud as "étoile étoile".
@@ -7,21 +9,29 @@ function cleanForSpeech(text: string): string {
 }
 
 export function SpeakButton({ text }: { text: string }) {
+  const { profile } = useProfile();
   const [speaking, setSpeaking] = useState(false);
-  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const webSpeechSupported = typeof window !== "undefined" && "speechSynthesis" in window;
 
-  useEffect(() => {
-    return () => {
-      if (supported) window.speechSynthesis.cancel();
-    };
-  }, [supported]);
+  function stopAll() {
+    audioRef.current?.pause();
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    if (webSpeechSupported) window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }
 
-  if (!supported) return null;
+  useEffect(() => stopAll, []);
 
-  function handleClick() {
-    if (speaking) {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
+  function speakWithBrowserVoice() {
+    if (!webSpeechSupported) {
+      setError("Lecture à voix haute indisponible pour le moment.");
       return;
     }
     const utterance = new SpeechSynthesisUtterance(cleanForSpeech(text));
@@ -34,9 +44,42 @@ export function SpeakButton({ text }: { text: string }) {
     setSpeaking(true);
   }
 
+  async function handleClick() {
+    if (speaking) {
+      stopAll();
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const blob = await synthesizeSpeech(text, profile?.tts_voice || "alloy");
+      const url = URL.createObjectURL(blob);
+      objectUrlRef.current = url;
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = stopAll;
+      audio.onerror = stopAll;
+      await audio.play();
+      setSpeaking(true);
+    } catch {
+      // Real voice unavailable (pas encore configurée, quota atteint, etc.) :
+      // on retombe sur la voix du navigateur plutôt que de bloquer la lecture.
+      speakWithBrowserVoice();
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <button className="speak-btn" onClick={handleClick}>
-      {speaking ? "⏹️ Arrêter la lecture" : "🔊 Lire à voix haute"}
-    </button>
+    <div>
+      <button className="speak-btn" onClick={handleClick} disabled={loading}>
+        {loading ? "⏳ Préparation..." : speaking ? "⏹️ Arrêter la lecture" : "🔊 Lire à voix haute"}
+      </button>
+      {error ? (
+        <p className="hint" style={{ color: "var(--danger)" }}>
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

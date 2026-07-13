@@ -28,6 +28,10 @@ create table public.profiles (
   streak integer not null default 0,
   last_active_date date,
   dyslexia_mode boolean not null default false,
+  dyslexia_font text not null default 'system',
+  dyslexia_tint text not null default 'cream',
+  dyslexia_size text not null default 'medium',
+  tts_voice text not null default 'alloy',
   subscription_status text not null default 'free',
   stripe_customer_id text,
   stripe_subscription_id text,
@@ -49,8 +53,10 @@ create policy "profiles_insert_own" on public.profiles
 -- Colonnes d'abonnement en lecture seule pour le client : seul le webhook
 -- Stripe (clé service_role, hors RLS) peut les modifier.
 revoke update on public.profiles from authenticated;
-grant update (username, grade, lv1, lv2, dyslexia_mode, xp, streak, last_active_date)
-  on public.profiles to authenticated;
+grant update (
+  username, grade, lv1, lv2, dyslexia_mode, dyslexia_font, dyslexia_tint, dyslexia_size,
+  tts_voice, xp, streak, last_active_date
+) on public.profiles to authenticated;
 revoke insert on public.profiles from authenticated;
 grant insert (id) on public.profiles to authenticated;
 
