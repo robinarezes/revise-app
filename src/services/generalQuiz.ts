@@ -1,19 +1,26 @@
 import type { QcmQuestion } from "../types";
-import { callBackend } from "./backendClient";
+import { callBackendNdjson } from "./backendClient";
 
-export type GeneralQuiz = { qcm: QcmQuestion[] };
 export type Difficulty = "facile" | "moyen" | "difficile";
 
-export function getGeneralQuiz(
+// Reçoit les questions une par une dès qu'elles sont prêtes (la première
+// question s'affiche sans attendre les 8), au lieu d'attendre le quiz
+// complet.
+export function streamGeneralQuiz(
   grade: string,
   subject: string,
-  options?: { topics?: string[]; difficulty?: Difficulty }
-): Promise<GeneralQuiz> {
-  return callBackend<GeneralQuiz>("/api/ai", {
-    action: "general-quiz",
-    grade,
-    subject,
-    topics: options?.topics,
-    difficulty: options?.difficulty,
-  });
+  options: { topics?: string[]; difficulty?: Difficulty },
+  onQuestion: (question: QcmQuestion) => void
+): Promise<void> {
+  return callBackendNdjson<QcmQuestion>(
+    "/api/ai",
+    {
+      action: "general-quiz",
+      grade,
+      subject,
+      topics: options.topics,
+      difficulty: options.difficulty,
+    },
+    onQuestion
+  );
 }

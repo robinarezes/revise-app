@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "../components/Header";
 import { HighlightedText } from "../components/HighlightedText";
-import { createLesson, findOrCreateSubject, generateId } from "../db/db";
+import { createLesson, findOrCreateSubject, generateId, saveQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { getCurriculumTopics, streamCurriculumLesson } from "../services/curriculum";
+import { generateQuiz } from "../services/generateQuiz";
 
 export default function ProgrammeMatierePage() {
   const { matiere = "" } = useParams();
@@ -41,11 +42,19 @@ export default function ProgrammeMatierePage() {
         photoIds: [],
         extractedText,
       });
-      // Le QCM/les flashcards/etc. se génèrent à la demande en appuyant sur
-      // "Réviser", comme pour une leçon photographiée : ça rend la création
-      // de la leçon quasi instantanée au lieu d'attendre une seule grosse
-      // génération.
       navigate(`/lecon/${lesson.id}`);
+      // Lance la génération du quiz en tâche de fond, sans bloquer la
+      // navigation : le temps que l'élève lise la leçon, le quiz est déjà
+      // prêt (ou en bonne voie) quand il clique "Réviser". Sans risque de
+      // quota : ces leçons sont partagées entre élèves du même
+      // niveau/matière/chapitre, donc déjà mises en cache par un tiers la
+      // plupart du temps, et le coût pour la toute première génération
+      // aurait de toute façon été payé plus tard au clic sur "Réviser".
+      generateQuiz({ lessonTitle: topic, lessonText: extractedText, difficulty: "moyen" })
+        .then((result) =>
+          saveQuizSet(lesson.id, result.qcm, result.flashcards, result.lessonCards, result.exercises)
+        )
+        .catch(() => {});
     } catch (e) {
       if (e instanceof BackendError && e.code === "quota_exceeded") {
         navigate("/premium?raison=quota");

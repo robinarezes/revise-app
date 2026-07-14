@@ -613,49 +613,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     "à ce niveau (différentes de questions trop basiques).";
 
         // Pas de cache ici (contrairement au quiz du jour) : chaque partie
-        // doit être différente pour rester rejouable à volonté.
-        const result = await callClaudeTool({
-          system:
-            "Tu es un professeur qui prépare un quiz de révision varié pour un élève, afin de tester " +
-            "ses connaissances générales dans une matière. Cet élève peut relancer un nouveau quiz autant " +
-            "de fois qu'il veut : chaque génération doit être clairement différente des précédentes, " +
-            "sinon le quiz devient inintéressant à rejouer." +
-            NO_LATEX,
-          userText:
-            scopeText +
-            difficultyHint +
-            " 4 options par question, une seule bonne réponse (correctIndex entre 0 et 3), avec une " +
-            "courte explication. Varie les sujets abordés d'une question à l'autre." +
-            varietyInstruction(),
-          tool: {
-            name: "save_general_quiz",
-            description: "Enregistre le quiz généré.",
-            input_schema: {
-              type: "object",
-              properties: {
-                qcm: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      question: { type: "string" },
-                      options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
-                      correctIndex: { type: "integer", minimum: 0, maximum: 3 },
-                      explanation: { type: "string" },
-                    },
-                    required: ["question", "options", "correctIndex"],
-                  },
-                  minItems: 8,
-                  maxItems: 8,
-                },
-              },
-              required: ["qcm"],
-            },
-          },
-          maxTokens: 3072,
-        });
+        // doit être différente pour rester rejouable à volonté. Streamé
+        // question par question (une ligne JSON par question) au lieu
+        // d'attendre les 8 d'un coup : la première question s'affiche dès
+        // qu'elle arrive.
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
-        return res.status(200).json(result);
+        res.status(200);
+
+        let full = "";
+        try {
+          for await (const delta of streamClaudeText({
+            system:
+              "Tu es un professeur qui prépare un quiz de révision varié pour un élève, afin de tester " +
+              "ses connaissances générales dans une matière. Cet élève peut relancer un nouveau quiz " +
+              "autant de fois qu'il veut : chaque génération doit être clairement différente des " +
+              "précédentes, sinon le quiz devient inintéressant à rejouer. Tu réponds uniquement avec " +
+              "des lignes JSON, une question par ligne, sans jamais rien ajouter d'autre (pas de texte, " +
+              "pas de \`\`\`, pas de numérotation)." +
+              NO_LATEX,
+            userText:
+              scopeText +
+              difficultyHint +
+              " 4 options par question, une seule bonne réponse (correctIndex entre 0 et 3), avec une " +
+              "courte explication. Varie les sujets abordés d'une question à l'autre." +
+              varietyInstruction() +
+              "\n\nRéponds avec EXACTEMENT 8 lignes, rien d'autre. Chaque ligne est un objet JSON sur " +
+              "une seule ligne (sans retour à la ligne à l'intérieur), au format exact : " +
+              `{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}`,
+            maxTokens: 3072,
+          })) {
+            full += delta;
+            res.write(delta);
+          }
+        } catch (e) {
+          if (!full) {
+            const message = e instanceof Error ? e.message : "Erreur inconnue.";
+            return res.status(502).json({ error: "upstream_error", message });
+          }
+        }
+        return res.end();
       }
 
       case "tts": {

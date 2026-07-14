@@ -7,13 +7,14 @@ import { BackendError } from "../services/backendClient";
 import { triggerConfetti } from "../services/confetti";
 import { getCurriculumTopics } from "../services/curriculum";
 import { markThemeExplored } from "../services/exploredThemes";
-import { getGeneralQuiz, type Difficulty } from "../services/generalQuiz";
+import { streamGeneralQuiz, type Difficulty } from "../services/generalQuiz";
 import { getPersonalBest, reportScore } from "../services/personalBest";
 import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
 
 const XP_PER_CORRECT = 4;
 const PERFECT_BONUS = 10;
+const TOTAL_QUESTIONS = 8;
 const SPECIAL_SUBJECTS = ["toutes les matières", "toutes les matieres", "culture générale", "culture generale"];
 
 type Scope = "tout" | "chapitres" | null;
@@ -36,7 +37,8 @@ export default function GeneralQuizPage() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [topicsError, setTopicsError] = useState<string | null>(null);
 
-  const [questions, setQuestions] = useState<QcmQuestion[] | null>(null);
+  const [questions, setQuestions] = useState<QcmQuestion[]>([]);
+  const [streamDone, setStreamDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsReauth, setNeedsReauth] = useState(false);
   const [index, setIndex] = useState(0);
@@ -48,7 +50,8 @@ export default function GeneralQuizPage() {
 
   const loadQuiz = useCallback(() => {
     if (!profile?.grade || scope === null) return;
-    setQuestions(null);
+    setQuestions([]);
+    setStreamDone(false);
     setError(null);
     setNeedsReauth(false);
     setIndex(0);
@@ -56,18 +59,30 @@ export default function GeneralQuizPage() {
     setCorrectCount(0);
     setFinished(false);
     setIsNewBest(false);
-    getGeneralQuiz(profile.grade, subjectName, {
-      topics: scope === "chapitres" ? selectedTopics : undefined,
-      difficulty,
-    })
-      .then((r) => setQuestions(r.qcm))
+    streamGeneralQuiz(
+      profile.grade,
+      subjectName,
+      { topics: scope === "chapitres" ? selectedTopics : undefined, difficulty },
+      (q) => setQuestions((prev) => [...prev, q])
+    )
+      .then(() => setStreamDone(true))
       .catch((e) => {
         if (e instanceof BackendError && e.code === "quota_exceeded") {
           navigate("/premium?raison=quota");
           return;
         }
-        setError(e instanceof Error ? e.message : "Erreur inconnue.");
-        setNeedsReauth(e instanceof BackendError && e.code === "unauthenticated");
+        // Si des questions sont déjà arrivées, autant laisser l'élève finir
+        // avec ce qu'on a plutôt que de tout casser sur une erreur réseau
+        // survenue en cours de route.
+        setQuestions((prev) => {
+          if (prev.length > 0) {
+            setStreamDone(true);
+            return prev;
+          }
+          setError(e instanceof Error ? e.message : "Erreur inconnue.");
+          setNeedsReauth(e instanceof BackendError && e.code === "unauthenticated");
+          return prev;
+        });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.grade, subjectName, navigate, scope, difficulty]);
@@ -91,7 +106,7 @@ export default function GeneralQuizPage() {
   }
 
   function handleSelect(optionIndex: number) {
-    if (selected !== null || !questions) return;
+    if (selected !== null || !questions[index]) return;
     setSelected(optionIndex);
     if (optionIndex === questions[index].correctIndex) {
       setCorrectCount((c) => c + 1);
@@ -103,8 +118,12 @@ export default function GeneralQuizPage() {
   }
 
   function handleNext() {
-    if (!questions) return;
     if (index + 1 < questions.length) {
+      setIndex(index + 1);
+      setSelected(null);
+    } else if (!streamDone) {
+      // La question suivante n'est pas encore arrivée : on avance quand
+      // même, l'écran affichera un court chargement le temps qu'elle arrive.
       setIndex(index + 1);
       setSelected(null);
     } else {
@@ -193,7 +212,7 @@ export default function GeneralQuizPage() {
     );
   }
 
-  if (!questions) {
+  if (questions.length === 0) {
     return (
       <div className="screen">
         <Header title={`Quiz général · ${subjectName}`} />
@@ -240,8 +259,8 @@ export default function GeneralQuizPage() {
     );
   }
 
-  const question = questions[index];
-  const progress = ((index + (selected !== null ? 1 : 0)) / questions.length) * 100;
+  const question = questions[index] as QcmQuestion | undefined;
+  const progress = ((index + (selected !== null ? 1 : 0)) / TOTAL_QUESTIONS) * 100;
 
   return (
     <div className="screen">
@@ -252,44 +271,53 @@ export default function GeneralQuizPage() {
         </div>
       </div>
       <div className="content">
-        <p className="question-text">{question.question}</p>
+        {!question ? (
+          <div className="loading-screen">
+            <div className="spinner" />
+            <p className="loading-text">Prochaine question...</p>
+          </div>
+        ) : (
+          <>
+            <p className="question-text">{question.question}</p>
 
-        <div className="options">
-          {question.options.map((option, i) => {
-            const isCorrect = i === question.correctIndex;
-            const isSelected = i === selected;
-            const showFeedback = selected !== null;
-            const className = [
-              "option",
-              showFeedback && isCorrect ? "option-correct" : "",
-              showFeedback && isSelected && !isCorrect ? "option-wrong" : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
-            return (
-              <button
-                key={i}
-                className={className}
-                onClick={() => handleSelect(i)}
-                disabled={showFeedback}
-              >
-                {option}
+            <div className="options">
+              {question.options.map((option, i) => {
+                const isCorrect = i === question.correctIndex;
+                const isSelected = i === selected;
+                const showFeedback = selected !== null;
+                const className = [
+                  "option",
+                  showFeedback && isCorrect ? "option-correct" : "",
+                  showFeedback && isSelected && !isCorrect ? "option-wrong" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <button
+                    key={i}
+                    className={className}
+                    onClick={() => handleSelect(i)}
+                    disabled={showFeedback}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selected !== null && question.explanation ? (
+              <p className="explanation">{question.explanation}</p>
+            ) : null}
+
+            <div className="spacer" />
+
+            {selected !== null ? (
+              <button className="btn btn-primary" onClick={handleNext}>
+                {index + 1 < questions.length || !streamDone ? "Suivant" : "Voir le résultat"}
               </button>
-            );
-          })}
-        </div>
-
-        {selected !== null && question.explanation ? (
-          <p className="explanation">{question.explanation}</p>
-        ) : null}
-
-        <div className="spacer" />
-
-        {selected !== null ? (
-          <button className="btn btn-primary" onClick={handleNext}>
-            {index + 1 < questions.length ? "Suivant" : "Voir le résultat"}
-          </button>
-        ) : null}
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );
