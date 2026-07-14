@@ -531,7 +531,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "\n\nRéponds avec EXACTEMENT 5 lignes, rien d'autre. Chaque ligne est un objet JSON sur " +
               "une seule ligne (sans retour à la ligne à l'intérieur), au format exact : " +
               `{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}`,
-            maxTokens: 1400,
+            maxTokens: 2400,
           })) {
             full += delta;
             res.write(delta);

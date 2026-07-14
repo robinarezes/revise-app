@@ -92,39 +92,76 @@ export async function callBackendStream(
   }
 }
 
-// Same as callBackendStream, but the body is NDJSON (one JSON object per
-// line) : onItem fires for each line as soon as it's complete, instead of
-// waiting for the whole response. Malformed lines are skipped rather than
-// failing the whole call.
+// Extracts complete top-level {...} objects from the start of `buffer`,
+// tracking brace depth and string literals so it works whether the model
+// puts one object per line or pretty-prints them across several lines.
+// Returns the objects found and whatever's left (an incomplete trailing
+// object, or nothing).
+function extractJsonObjects(buffer: string): { texts: string[]; rest: string } {
+  const texts: string[] = [];
+  let i = 0;
+  while (i < buffer.length) {
+    while (i < buffer.length && /\s/.test(buffer[i])) i++;
+    if (i >= buffer.length || buffer[i] !== "{") break;
+    const start = i;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let j = i;
+    let complete = false;
+    for (; j < buffer.length; j++) {
+      const ch = buffer[j];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          complete = true;
+          j++;
+          break;
+        }
+      }
+    }
+    if (!complete) break; // Not enough data yet: wait for the next chunk.
+    texts.push(buffer.slice(start, j));
+    i = j;
+  }
+  return { texts, rest: buffer.slice(i) };
+}
+
+// Same as callBackendStream, but the body is a sequence of JSON objects
+// (however they're spaced/lined up) : onItem fires as soon as each object
+// is complete, instead of waiting for the whole response. Malformed objects
+// are skipped rather than failing the whole call.
 export async function callBackendNdjson<T>(
   path: string,
   body: unknown,
   onItem: (item: T) => void
 ): Promise<void> {
   let buffer = "";
-  await callBackendStream(path, body, (chunk) => {
-    buffer += chunk;
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
+  function drain() {
+    const { texts, rest } = extractJsonObjects(buffer);
+    buffer = rest;
+    for (const text of texts) {
       try {
-        onItem(JSON.parse(trimmed) as T);
+        onItem(JSON.parse(text) as T);
       } catch {
-        // Ligne coupée ou mal formée : on l'ignore plutôt que de casser
-        // tout le quiz pour une question.
+        // Malformed despite balanced braces (shouldn't normally happen):
+        // skip it rather than losing the rest of the stream.
       }
     }
-  });
-  const trimmed = buffer.trim();
-  if (trimmed) {
-    try {
-      onItem(JSON.parse(trimmed) as T);
-    } catch {
-      // Idem : dernière ligne incomplète, ignorée.
-    }
   }
+  await callBackendStream(path, body, (chunk) => {
+    buffer += chunk;
+    drain();
+  });
+  drain();
 }
 
 // Same as callBackend, but for endpoints that return a binary body (audio)
