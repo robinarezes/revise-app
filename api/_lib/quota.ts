@@ -1,3 +1,4 @@
+import { todayParis } from "./date.js";
 import { getRedis } from "./redis.js";
 import { getServiceClient } from "./supabaseService.js";
 
@@ -5,8 +6,7 @@ const DAILY_QUOTA = Number(process.env.DAILY_QUOTA ?? 5);
 const KEY_TTL_SECONDS = 60 * 60 * 26; // a little over a day, as a safety margin
 
 function todayKey(userId: string): string {
-  const day = new Date().toISOString().slice(0, 10);
-  return `quota:${userId}:${day}`;
+  return `quota:${userId}:${todayParis()}`;
 }
 
 export type QuotaResult = {

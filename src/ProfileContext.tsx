@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "./AuthContext";
+import { todayParis } from "./dateUtils";
 import { KIDS_GRADES, type Grade } from "./grade";
 import type { Language } from "./languages";
 import { supabase } from "./supabaseClient";
@@ -56,9 +57,7 @@ type ProfileContextValue = {
 const ProfileContext = createContext<ProfileContextValue | undefined>(undefined);
 
 function todayStr(offsetDays = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return todayParis(offsetDays);
 }
 
 export function ProfileProvider({ children }: { children: ReactNode }) {

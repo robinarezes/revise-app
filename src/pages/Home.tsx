@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
 import { SubjectCard } from "../components/SubjectCard";
+import { todayParis } from "../dateUtils";
 import { getDailyQuizResults, getSubjectsWithLessonCounts, type DailyQuizResultRow } from "../db/db";
 import { triggerConfetti } from "../services/confetti";
 import { levelInfo } from "../services/level";
@@ -16,7 +17,7 @@ const DAILY_QUIZ_SUBJECTS = [
 ];
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayParis();
 }
 
 export default function HomePage() {

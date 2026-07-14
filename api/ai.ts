@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { callClaudeTool, type ImageContent } from "./_lib/anthropic.js";
 import { requireUserId } from "./_lib/auth.js";
 import { getCached, setCached } from "./_lib/cache.js";
+import { todayParis } from "./_lib/date.js";
 import { checkAndConsumeQuota } from "./_lib/quota.js";
 import { getServiceClient } from "./_lib/supabaseService.js";
 
@@ -15,7 +16,7 @@ import { getServiceClient } from "./_lib/supabaseService.js";
 type ChatTurn = { question: string; answer: string };
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayParis();
 }
 
 // Claude sometimes reaches for LaTeX ($x^2$, \frac{}{}) or stray symbols the
@@ -24,6 +25,32 @@ function todayStr(): string {
 const NO_LATEX =
   " N'utilise jamais de notation LaTeX ni de signes dollar ($) pour les formules : écris-les en texte " +
   "normal (ex: \"x²\", \"racine carrée de x\", \"a/b\"), sans code ni caractères spéciaux superflus.";
+
+// Sans ça, Claude a tendance à renvoyer une première question quasi
+// identique d'une génération à l'autre pour un même sujet (le "Roi Soleil"
+// ressort presque toujours en premier pour l'Histoire, par ex.). On force
+// un point de départ différent à chaque appel avec un thème tiré au hasard
+// et un identifiant unique que le modèle ne peut pas ignorer.
+const VARIETY_THEMES = [
+  "un événement ou une découverte peu connue",
+  "un chiffre ou une statistique surprenante",
+  "une invention ou une innovation",
+  "un lieu ou une carte",
+  "un personnage moins célèbre que les plus évidents",
+  "une comparaison entre deux choses",
+  "une anecdote ou un détail insolite",
+  "une notion pratique ou du quotidien",
+];
+
+function varietyInstruction(): string {
+  const theme = VARIETY_THEMES[Math.floor(Math.random() * VARIETY_THEMES.length)];
+  return (
+    ` Génération unique n°${randomUUID().slice(0, 8)} : n'utilise jamais la question la plus classique ` +
+    `ou la plus attendue sur ce sujet, surtout pas comme première question. Commence plutôt par ${theme}, ` +
+    "puis varie librement le reste. Deux générations différentes ne doivent jamais partager leur première " +
+    "question."
+  );
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -473,7 +500,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             "sujet, pour que ce quiz soit vraiment différent de celui d'hier et de demain : change les " +
             "notions abordées, l'angle des questions et leur ordre de difficulté à chaque génération. " +
             "Les questions doivent rester simples et rapides à répondre. 4 options par question, une " +
-            "seule bonne réponse (correctIndex entre 0 et 3), avec une courte explication.",
+            "seule bonne réponse (correctIndex entre 0 et 3), avec une courte explication." +
+            varietyInstruction(),
           tool: {
             name: "save_daily_quiz",
             description: "Enregistre le quiz quotidien généré.",
@@ -523,7 +551,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await callClaudeTool({
           system:
             "Tu es un professeur qui prépare un quiz de révision varié pour un élève, afin de tester " +
-            "ses connaissances générales dans une matière." +
+            "ses connaissances générales dans une matière. Cet élève peut relancer un nouveau quiz autant " +
+            "de fois qu'il veut : chaque génération doit être clairement différente des précédentes, " +
+            "sinon le quiz devient inintéressant à rejouer." +
             NO_LATEX,
           userText:
             (["culture générale", "culture generale"].includes(subject.trim().toLowerCase())
@@ -533,7 +563,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 "(programme scolaire français), couvrant des notions variées de cette matière à ce niveau " +
                 "(différentes de questions trop basiques).") +
             " 4 options par question, une seule bonne réponse (correctIndex entre 0 et 3), avec une " +
-            "courte explication. Varie la difficulté et les sujets abordés d'une question à l'autre.",
+            "courte explication. Varie la difficulté et les sujets abordés d'une question à l'autre." +
+            varietyInstruction(),
           tool: {
             name: "save_general_quiz",
             description: "Enregistre le quiz généré.",
@@ -613,16 +644,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case "leaderboard": {
         const service = getServiceClient();
 
-        // Classement hebdomadaire (repart de zéro chaque lundi) : donne à
-        // tout le monde une raison de revenir chaque semaine, plutôt qu'un
-        // classement à vie où les premiers arrivés sont indétrônables.
-        const now = new Date();
-        const utcDay = now.getUTCDay();
-        const diffToMonday = utcDay === 0 ? -6 : 1 - utcDay;
-        const monday = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diffToMonday)
-        );
-        const weekStart = monday.toISOString().slice(0, 10);
+        // Classement hebdomadaire (repart de zéro chaque lundi, heure de
+        // Paris) : donne à tout le monde une raison de revenir chaque
+        // semaine, plutôt qu'un classement à vie où les premiers arrivés
+        // sont indétrônables.
+        const dow = new Date(`${todayParis()}T00:00:00Z`).getUTCDay();
+        const diffToMonday = dow === 0 ? -6 : 1 - dow;
+        const weekStart = todayParis(diffToMonday);
 
         const { data: results, error: resultsError } = await service
           .from("daily_quiz_results")

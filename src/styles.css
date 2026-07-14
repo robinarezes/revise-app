@@ -567,12 +567,55 @@ input[type="password"]:focus {
   margin: 0;
 }
 
+.lesson-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .extracted-text {
   font-size: 15px;
   color: var(--text);
   line-height: 22px;
   white-space: pre-wrap;
   margin: 0;
+}
+
+.lesson-h1,
+.lesson-h2,
+.lesson-h3 {
+  color: var(--text);
+  margin: 6px 0 0;
+  font-weight: 800;
+}
+
+.lesson-h1 {
+  font-size: 22px;
+  line-height: 28px;
+}
+
+.lesson-h2 {
+  font-size: 19px;
+  line-height: 25px;
+}
+
+.lesson-h3 {
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.lesson-bullets {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lesson-bullets li {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 22px;
 }
 
 .actions-row {

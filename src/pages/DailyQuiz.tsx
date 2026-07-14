@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { Header } from "../components/Header";
+import { todayParis } from "../dateUtils";
 import { getDailyQuizResult, saveDailyQuizResult, type DailyQuizResultRow } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
@@ -30,7 +31,7 @@ function formatElapsed(totalSeconds: number): string {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayParis();
 }
 
 export default function DailyQuizPage() {
