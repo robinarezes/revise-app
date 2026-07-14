@@ -1,3 +1,5 @@
+import type { ReactElement } from "react";
+
 // Rendu simple d'un texte généré par l'IA : titres "#"/"##"/"###", puces
 // "- ", et mots-clés **en gras** surlignés. Pas un vrai moteur Markdown,
 // juste ce que nos prompts utilisent.
@@ -22,7 +24,7 @@ function InlineText({ text }: { text: string }) {
 
 export function HighlightedText({ text }: { text: string }) {
   const lines = text.split("\n");
-  const elements: JSX.Element[] = [];
+  const elements: ReactElement[] = [];
   let bulletBuffer: string[] = [];
 
   function flushBullets() {
