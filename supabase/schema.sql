@@ -12,6 +12,7 @@ drop function if exists public.get_my_class_invitations();
 drop function if exists public.get_class_members(uuid);
 drop function if exists public.get_class_feed(uuid);
 drop function if exists public.count_pending_invitations();
+drop function if exists public.get_direct_shares_received();
 drop function if exists public.is_class_member(uuid, uuid);
 
 drop policy if exists "lesson_photos_select_own" on storage.objects;
@@ -260,14 +261,26 @@ create table public.class_invitations (
 
 alter table public.class_invitations enable row level security;
 
+-- Sert aux deux formes de partage : soit class_id est renseigné (partage
+-- dans une classe), soit shared_with_user_id l'est (partage direct à un ami
+-- précis, sans classe) — jamais les deux à la fois.
 create table public.shared_content (
   id uuid primary key default gen_random_uuid(),
-  class_id uuid not null references public.classes(id) on delete cascade,
+  class_id uuid references public.classes(id) on delete cascade,
+  shared_with_user_id uuid references auth.users(id) on delete cascade,
   lesson_id uuid not null references public.lessons(id) on delete cascade,
   shared_by_user_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
-  unique (class_id, lesson_id)
+  unique (class_id, lesson_id),
+  constraint shared_content_target_check check (
+    (class_id is not null and shared_with_user_id is null)
+    or (class_id is null and shared_with_user_id is not null)
+  )
 );
+
+create unique index shared_content_direct_lesson_uniq
+  on public.shared_content (shared_with_user_id, lesson_id)
+  where shared_with_user_id is not null;
 
 alter table public.shared_content enable row level security;
 
@@ -377,37 +390,58 @@ create policy "class_invitations_delete" on public.class_invitations
 
 create policy "shared_content_select" on public.shared_content
   for select using (
-    auth.uid() = shared_by_user_id or public.is_class_member(class_id, auth.uid())
+    auth.uid() = shared_by_user_id
+    or (class_id is not null and public.is_class_member(class_id, auth.uid()))
+    or shared_with_user_id = auth.uid()
   );
 
+-- Partage dans une classe : il faut en être membre. Partage direct à un
+-- ami : il faut que la demande d'ami soit acceptée dans un sens ou l'autre.
 create policy "shared_content_insert" on public.shared_content
   for insert with check (
     auth.uid() = shared_by_user_id
-    and public.is_class_member(class_id, auth.uid())
     and exists (select 1 from public.lessons l where l.id = lesson_id and l.user_id = auth.uid())
+    and (
+      (class_id is not null and public.is_class_member(class_id, auth.uid()))
+      or (
+        shared_with_user_id is not null
+        and exists (
+          select 1 from public.friend_requests fr
+          where fr.status = 'accepted'
+            and (
+              (fr.from_user_id = auth.uid() and fr.to_user_id = shared_content.shared_with_user_id)
+              or (fr.to_user_id = auth.uid() and fr.from_user_id = shared_content.shared_with_user_id)
+            )
+        )
+      )
+    )
   );
 
 create policy "shared_content_delete" on public.shared_content
   for delete using (
     auth.uid() = shared_by_user_id
-    or exists (select 1 from public.classes c where c.id = class_id and c.owner_id = auth.uid())
+    or (class_id is not null and exists (select 1 from public.classes c where c.id = class_id and c.owner_id = auth.uid()))
   );
 
 -- Politiques additives (en plus de "lessons_all_own") qui donnent un accès en
--- LECTURE SEULE aux membres d'une classe où la leçon a été partagée.
+-- LECTURE SEULE à qui une leçon a été partagée (classe ou ami direct).
 -- L'écriture (modifier/supprimer/régénérer) reste réservée au propriétaire.
 
 create policy "lessons_select_shared" on public.lessons
   for select using (
     exists (
       select 1 from public.shared_content sc
-      where sc.lesson_id = lessons.id and public.is_class_member(sc.class_id, auth.uid())
+      where sc.lesson_id = lessons.id
+        and (
+          (sc.class_id is not null and public.is_class_member(sc.class_id, auth.uid()))
+          or sc.shared_with_user_id = auth.uid()
+        )
     )
   );
 
 -- quiz_sets avait une seule policy "for all" basée sur quiz_sets.user_id ;
--- on la remplace par une policy de lecture (propriétaire OU classe où la
--- leçon est partagée) et des policies d'écriture basées sur la vraie
+-- on la remplace par une policy de lecture (propriétaire OU classe/ami à qui
+-- la leçon est partagée) et des policies d'écriture basées sur la vraie
 -- propriété de la LEÇON (pas la colonne user_id, que quiconque pourrait
 -- essayer de renseigner autrement lors d'un upsert).
 drop policy if exists "quiz_sets_all_own" on public.quiz_sets;
@@ -417,21 +451,29 @@ create policy "quiz_sets_select" on public.quiz_sets
     auth.uid() = user_id
     or exists (
       select 1 from public.shared_content sc
-      where sc.lesson_id = quiz_sets.lesson_id and public.is_class_member(sc.class_id, auth.uid())
+      where sc.lesson_id = quiz_sets.lesson_id
+        and (
+          (sc.class_id is not null and public.is_class_member(sc.class_id, auth.uid()))
+          or sc.shared_with_user_id = auth.uid()
+        )
     )
   );
 
 -- La toute première génération (quand aucune ligne n'existe encore) est
--- ouverte à n'importe quel membre de la classe où la leçon est partagée, pas
--- seulement au propriétaire : sinon "Réviser cette leçon" échoue tant que le
--- propriétaire ne l'a pas fait lui-même en premier. Modifier/régénérer une
--- ligne déjà existante reste réservé au vrai propriétaire (quiz_sets_update).
+-- ouverte à qui la leçon est partagée, pas seulement au propriétaire : sinon
+-- "Réviser cette leçon" échoue tant que le propriétaire ne l'a pas fait
+-- lui-même en premier. Modifier/régénérer une ligne déjà existante reste
+-- réservé au vrai propriétaire (quiz_sets_update).
 create policy "quiz_sets_insert" on public.quiz_sets
   for insert with check (
     exists (select 1 from public.lessons l where l.id = quiz_sets.lesson_id and l.user_id = auth.uid())
     or exists (
       select 1 from public.shared_content sc
-      where sc.lesson_id = quiz_sets.lesson_id and public.is_class_member(sc.class_id, auth.uid())
+      where sc.lesson_id = quiz_sets.lesson_id
+        and (
+          (sc.class_id is not null and public.is_class_member(sc.class_id, auth.uid()))
+          or sc.shared_with_user_id = auth.uid()
+        )
     )
   );
 
@@ -534,6 +576,25 @@ as $$
   join public.subjects s on s.id = l.subject_id
   join public.profiles p on p.id = sc.shared_by_user_id
   where sc.class_id = p_class_id and public.is_class_member(p_class_id, auth.uid())
+  order by sc.created_at desc;
+$$;
+
+create or replace function public.get_direct_shares_received()
+returns table(
+  id uuid, lesson_id uuid, lesson_title text, subject_name text,
+  shared_by_username text, created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select sc.id, sc.lesson_id, l.title, s.name, p.username, sc.created_at
+  from public.shared_content sc
+  join public.lessons l on l.id = sc.lesson_id
+  join public.subjects s on s.id = l.subject_id
+  join public.profiles p on p.id = sc.shared_by_user_id
+  where sc.shared_with_user_id = auth.uid()
   order by sc.created_at desc;
 $$;
 

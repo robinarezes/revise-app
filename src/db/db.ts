@@ -490,6 +490,22 @@ export async function shareLessonToClass(classId: string, lessonId: string): Pro
   if (error) throw error;
 }
 
+// --- Partage direct à un ami, sans classe ---
+
+export async function shareLessonToFriend(friendUserId: string, lessonId: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase
+    .from("shared_content")
+    .insert({ shared_with_user_id: friendUserId, lesson_id: lessonId, shared_by_user_id: userId });
+  if (error) throw error;
+}
+
+export async function getDirectSharesReceived(): Promise<SharedLesson[]> {
+  const { data, error } = await supabase.rpc("get_direct_shares_received");
+  if (error) throw error;
+  return ((data ?? []) as any[]).map(rowToSharedLesson);
+}
+
 export async function countPendingInvitations(): Promise<number> {
   const { data, error } = await supabase.rpc("count_pending_invitations");
   if (error) throw error;

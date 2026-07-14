@@ -8,16 +8,18 @@ import { PhotoImage } from "../components/PhotoImage";
 import { SpeakButton } from "../components/SpeakButton";
 import {
   deleteLesson,
+  getFriendData,
   getLesson,
   getMyClasses,
   saveSimplifiedText,
   saveSummaryText,
   shareLessonToClass,
+  shareLessonToFriend,
 } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { simplifyLesson } from "../services/simplifyLesson";
 import { summarizeLesson } from "../services/summarizeLesson";
-import type { Lesson, SchoolClass } from "../types";
+import type { FriendEntry, Lesson, SchoolClass } from "../types";
 
 export default function LeconPage() {
   const { id = "" } = useParams();
@@ -35,6 +37,10 @@ export default function LeconPage() {
   const [myClasses, setMyClasses] = useState<SchoolClass[] | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [sharedTo, setSharedTo] = useState<Set<string>>(new Set());
+  const [showFriendShare, setShowFriendShare] = useState(false);
+  const [friends, setFriends] = useState<FriendEntry[] | null>(null);
+  const [friendShareError, setFriendShareError] = useState<string | null>(null);
+  const [sharedToFriends, setSharedToFriends] = useState<Set<string>>(new Set());
   const xpEarned = (location.state as { xpEarned?: number } | null)?.xpEarned;
   const dyslexiaMode = profile?.dyslexia_mode ?? false;
   const isOwner = !!session?.user.id && lesson?.ownerId === session.user.id;
@@ -119,6 +125,26 @@ export default function LeconPage() {
     }
   }
 
+  function handleOpenFriendShare() {
+    setFriendShareError(null);
+    setShowFriendShare((v) => !v);
+    if (friends === null) {
+      getFriendData()
+        .then((entries) => setFriends(entries.filter((e) => e.relation === "friend")))
+        .catch((e) => setFriendShareError(e instanceof Error ? e.message : "Erreur inconnue."));
+    }
+  }
+
+  async function handleShareToFriend(friendUserId: string) {
+    setFriendShareError(null);
+    try {
+      await shareLessonToFriend(friendUserId, id);
+      setSharedToFriends((s) => new Set(s).add(friendUserId));
+    } catch (e) {
+      setFriendShareError(e instanceof Error ? e.message : "Erreur inconnue.");
+    }
+  }
+
   if (notFound) {
     return (
       <NotFoundScreen
@@ -189,6 +215,41 @@ export default function LeconPage() {
 
         {isOwner && !isAdultMode ? (
           <>
+            <button className="link-btn" onClick={handleOpenFriendShare}>
+              👤 Partager avec un ami
+            </button>
+            {showFriendShare ? (
+              friendShareError ? (
+                <p className="hint" style={{ color: "var(--danger)" }}>
+                  {friendShareError}
+                </p>
+              ) : friends === null ? (
+                <p className="hint">Chargement...</p>
+              ) : friends.length === 0 ? (
+                <p className="hint">
+                  Tu n'as pas encore d'ami. Ajoutes-en depuis la page Amis (bouton Classe de
+                  l'accueil).
+                </p>
+              ) : (
+                <div className="card-list">
+                  {friends.map((f) => (
+                    <div key={f.userId} className="topic-card">
+                      <div className="card-text">
+                        <p className="card-name">{f.username}</p>
+                      </div>
+                      <button
+                        className="link-btn"
+                        disabled={sharedToFriends.has(f.userId)}
+                        onClick={() => handleShareToFriend(f.userId)}
+                      >
+                        {sharedToFriends.has(f.userId) ? "Partagé ✓" : "Partager"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : null}
+
             <button className="link-btn" onClick={handleOpenShare}>
               🏫 Partager avec une classe
             </button>

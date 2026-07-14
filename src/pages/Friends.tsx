@@ -1,26 +1,33 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import {
+  getDirectSharesReceived,
   getFriendData,
   removeFriendRequest,
   respondFriendRequest,
   searchUsersByUsername,
   sendFriendRequest,
 } from "../db/db";
-import type { FriendEntry } from "../types";
+import type { FriendEntry, SharedLesson } from "../types";
 
 export default function FriendsPage() {
+  const navigate = useNavigate();
   const [entries, setEntries] = useState<FriendEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; username: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [sentTo, setSentTo] = useState<Set<string>>(new Set());
+  const [receivedLessons, setReceivedLessons] = useState<SharedLesson[]>([]);
 
   function reload() {
     getFriendData()
       .then(setEntries)
       .catch((e) => setError(e instanceof Error ? e.message : "Erreur inconnue."));
+    getDirectSharesReceived()
+      .then(setReceivedLessons)
+      .catch(() => {});
   }
 
   useEffect(reload, []);
@@ -97,7 +104,32 @@ export default function FriendsPage() {
           </p>
         ) : null}
 
-        <label className="field-label">Ajouter un ami</label>
+        {receivedLessons.length > 0 ? (
+          <>
+            <p className="section-label">Leçons reçues</p>
+            <div className="card-list">
+              {receivedLessons.map((s) => (
+                <button
+                  key={s.id}
+                  className="topic-card"
+                  onClick={() => navigate(`/lecon/${s.lessonId}`)}
+                >
+                  <div className="card-text">
+                    <p className="card-name">{s.lessonTitle}</p>
+                    <p className="hint" style={{ margin: 0 }}>
+                      {s.subjectName} · envoyé par {s.sharedByUsername}
+                    </p>
+                  </div>
+                  <span className="chevron">›</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        <label className="field-label" style={{ marginTop: receivedLessons.length > 0 ? 20 : 0 }}>
+          Ajouter un ami
+        </label>
         <input
           type="text"
           value={query}
