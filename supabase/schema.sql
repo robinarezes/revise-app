@@ -421,9 +421,18 @@ create policy "quiz_sets_select" on public.quiz_sets
     )
   );
 
+-- La toute première génération (quand aucune ligne n'existe encore) est
+-- ouverte à n'importe quel membre de la classe où la leçon est partagée, pas
+-- seulement au propriétaire : sinon "Réviser cette leçon" échoue tant que le
+-- propriétaire ne l'a pas fait lui-même en premier. Modifier/régénérer une
+-- ligne déjà existante reste réservé au vrai propriétaire (quiz_sets_update).
 create policy "quiz_sets_insert" on public.quiz_sets
   for insert with check (
     exists (select 1 from public.lessons l where l.id = quiz_sets.lesson_id and l.user_id = auth.uid())
+    or exists (
+      select 1 from public.shared_content sc
+      where sc.lesson_id = quiz_sets.lesson_id and public.is_class_member(sc.class_id, auth.uid())
+    )
   );
 
 create policy "quiz_sets_update" on public.quiz_sets
