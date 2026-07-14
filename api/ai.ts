@@ -368,10 +368,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             NO_LATEX,
           userText:
             `Leçon : "${lessonTitle}"\n\nContenu complet :\n${lessonText}\n\n` +
-            "Rédige un résumé très court (4 à 8 puces maximum, chacune une phrase courte) qui ne garde " +
-            "que le principal : définitions clés, notions essentielles, formules ou dates si vraiment " +
-            "importantes. Utilise des tirets \"- \" en début de ligne. Mets en évidence les mots-clés " +
-            "avec **le mot** (comme en Markdown). Pas d'introduction ni de conclusion, juste les puces.",
+            "Rédige un résumé ULTRA court (3 à 5 puces maximum, jamais plus, chacune une phrase très " +
+            "courte) qui ne garde QUE l'essentiel absolu : les définitions ou notions sans lesquelles on " +
+            "ne comprend rien à la leçon. Élimine tout exemple, détail ou nuance secondaire. Utilise des " +
+            "tirets \"- \" en début de ligne. Mets en évidence les mots-clés avec **le mot** (comme en " +
+            "Markdown). Pas d'introduction ni de conclusion, juste les puces.",
           tool: {
             name: "save_summary",
             description: "Enregistre le résumé de la leçon.",

@@ -32,6 +32,8 @@ export default function LeconPage() {
   const [simplifying, setSimplifying] = useState(false);
   const [simplifyError, setSimplifyError] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [myClasses, setMyClasses] = useState<SchoolClass[] | null>(null);
@@ -58,6 +60,7 @@ export default function LeconPage() {
     if (!lesson || lesson.summaryText) return;
     let cancelled = false;
     setSummarizing(true);
+    setSummaryError(null);
     summarizeLesson({ lessonTitle: lesson.title, lessonText: lesson.extractedText })
       .then(async (result) => {
         await saveSummaryText(lesson.id, result.summaryText);
@@ -65,8 +68,11 @@ export default function LeconPage() {
           setLesson((l) => (l ? { ...l, summaryText: result.summaryText } : l));
         }
       })
-      .catch(() => {
-        // Pas grave : on retombe simplement sur le texte complet.
+      .catch((e) => {
+        // Le contenu complet reste affiché dans tous les cas ; on garde
+        // juste l'erreur pour proposer un nouvel essai plutôt que de
+        // laisser l'élève sans explication ni recours.
+        if (!cancelled) setSummaryError(e instanceof Error ? e.message : "Erreur inconnue.");
       })
       .finally(() => {
         if (!cancelled) setSummarizing(false);
@@ -74,7 +80,7 @@ export default function LeconPage() {
     return () => {
       cancelled = true;
     };
-  }, [lesson?.id, lesson?.summaryText]);
+  }, [lesson?.id, lesson?.summaryText, summaryAttempt]);
 
   useEffect(() => {
     if (!lesson || !dyslexiaMode || lesson.simplifiedText) return;
@@ -185,6 +191,14 @@ export default function LeconPage() {
         ) : null}
         {!dyslexiaMode && summarizing && !lesson.summaryText ? (
           <p className="hint">✨ Résumé de la leçon en cours...</p>
+        ) : null}
+        {!dyslexiaMode && summaryError && !lesson.summaryText ? (
+          <p className="hint">
+            {summaryError}{" "}
+            <button className="link-btn" style={{ padding: 0 }} onClick={() => setSummaryAttempt((n) => n + 1)}>
+              Réessayer le résumé
+            </button>
+          </p>
         ) : null}
         {simplifyError ? <p className="hint">{simplifyError}</p> : null}
         <HighlightedText text={displayedText} />
