@@ -4,6 +4,34 @@
 -- avec noms d'utilisateur) passe par des fonctions security definer plutôt
 -- que d'ouvrir la table profiles, pour ne jamais exposer plus que id+pseudo.
 
+-- 0. Reset : ce script est sûr à coller et exécuter plusieurs fois, même si
+-- une tentative précédente s'est arrêtée en cours de route (Postgres exécute
+-- un lot de requêtes collées comme une seule transaction "tout ou rien" : si
+-- une instruction échoue, rien de ce lot n'a été appliqué, mais un lot
+-- précédent différent a pu partiellement réussir avant). On repart toujours
+-- d'une table rase avant de tout recréer.
+
+drop function if exists public.count_pending_invitations();
+drop function if exists public.get_class_feed(uuid);
+drop function if exists public.get_class_members(uuid);
+drop function if exists public.get_my_class_invitations();
+drop function if exists public.get_my_friend_data();
+drop function if exists public.search_users_by_username(text);
+
+drop policy if exists "quiz_sets_delete" on public.quiz_sets;
+drop policy if exists "quiz_sets_update" on public.quiz_sets;
+drop policy if exists "quiz_sets_insert" on public.quiz_sets;
+drop policy if exists "quiz_sets_select" on public.quiz_sets;
+drop policy if exists "quiz_sets_all_own" on public.quiz_sets;
+drop policy if exists "lessons_select_shared" on public.lessons;
+
+drop table if exists public.shared_content cascade;
+drop table if exists public.class_invitations cascade;
+drop table if exists public.class_members cascade;
+drop table if exists public.classes cascade;
+drop table if exists public.friend_requests cascade;
+drop function if exists public.is_class_member(uuid, uuid);
+
 -- 1. Demandes d'ami --------------------------------------------------------
 
 create table public.friend_requests (
