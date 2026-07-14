@@ -6,9 +6,16 @@ import { getLesson, getQuizSet, saveQuizSet } from "../db/db";
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { generateQuiz } from "../services/generateQuiz";
+import type { Difficulty } from "../services/generalQuiz";
 import type { Lesson, QuizSet } from "../types";
 
 const AUTO_MODES = new Set(["exercice", "qcm", "flashcards", "apprendre", "demander"]);
+
+const DIFFICULTY_OPTIONS: { value: Difficulty; label: string; icon: string }[] = [
+  { value: "facile", label: "Facile", icon: "🙂" },
+  { value: "moyen", label: "Moyen", icon: "🙃" },
+  { value: "difficile", label: "Difficile", icon: "🔥" },
+];
 
 export default function RevisionPage() {
   const { leconId = "" } = useParams();
@@ -20,6 +27,7 @@ export default function RevisionPage() {
   const [quizSet, setQuizSet] = useState<QuizSet | undefined>();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>("moyen");
 
   useEffect(() => {
     setLoading(true);
@@ -37,6 +45,7 @@ export default function RevisionPage() {
       const result = await generateQuiz({
         lessonTitle: lesson.title,
         lessonText: lesson.extractedText,
+        difficulty,
       });
       const saved = await saveQuizSet(
         lesson.id,
@@ -104,6 +113,17 @@ export default function RevisionPage() {
             L'IA va préparer une leçon expliquée, des QCM, des flashcards et des exercices à
             partir du contenu de cette leçon.
           </p>
+          <div className="option-pills">
+            {DIFFICULTY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`option-pill ${difficulty === opt.value ? "option-pill-selected" : ""}`}
+                onClick={() => setDifficulty(opt.value)}
+              >
+                {opt.icon} {opt.label}
+              </button>
+            ))}
+          </div>
           <button className="btn btn-primary btn-block" onClick={handleGenerate}>
             Générer
           </button>
@@ -160,8 +180,19 @@ export default function RevisionPage() {
               {isPremium ? "Un schéma généré par l'IA pour visualiser la leçon" : "Fonctionnalité Premium"}
             </p>
           </button>
+          <div className="option-pills" style={{ marginTop: 12 }}>
+            {DIFFICULTY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`option-pill ${difficulty === opt.value ? "option-pill-selected" : ""}`}
+                onClick={() => setDifficulty(opt.value)}
+              >
+                {opt.icon} {opt.label}
+              </button>
+            ))}
+          </div>
           <button className="link-btn" onClick={handleGenerate}>
-            Régénérer un nouveau contenu
+            Régénérer un nouveau contenu ({DIFFICULTY_OPTIONS.find((o) => o.value === difficulty)?.label})
           </button>
           <button className="link-btn" onClick={() => navigate("/")}>
             🏠 Retour à l'accueil

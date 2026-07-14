@@ -220,14 +220,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       case "quiz": {
-        const { lessonTitle, lessonText } = req.body as { lessonTitle: string; lessonText: string };
+        const { lessonTitle, lessonText, difficulty } = req.body as {
+          lessonTitle: string;
+          lessonText: string;
+          difficulty?: "facile" | "moyen" | "difficile";
+        };
         if (!lessonTitle || !lessonText) {
           return res.status(400).json({ error: "bad_request", message: "Leçon manquante." });
         }
         // Deux personnes qui révisent la même leçon (même texte, souvent
-        // depuis Programme) partagent le même QCM/flashcards/exercices au
-        // lieu de re-générer (et re-facturer) à chaque fois.
-        const quizCacheKey = `quiz:${createHash("sha256").update(lessonText).digest("hex")}`;
+        // depuis Programme) au même niveau de difficulté partagent le même
+        // QCM/flashcards/exercices au lieu de re-générer (et re-facturer)
+        // à chaque fois.
+        const quizCacheKey =
+          `quiz:${createHash("sha256").update(lessonText).digest("hex")}:${difficulty ?? "moyen"}`;
         const cachedQuiz = await getCached<unknown>(quizCacheKey);
         if (cachedQuiz) return res.status(200).json(cachedQuiz);
 
@@ -242,13 +248,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const flashcardCount = 8;
         const lessonCardCount = 6;
         const exerciseCount = 5;
+        const difficultyHint =
+          difficulty === "facile"
+            ? " Niveau demandé : facile — reste sur les notions les plus simples et évidentes de la leçon."
+            : difficulty === "difficile"
+              ? " Niveau demandé : difficile — pousse davantage sur les détails, nuances et pièges " +
+                "possibles du contenu."
+              : " Niveau demandé : moyen — équilibre entre notions de base et approfondissement.";
         const result = await callClaudeTool({
           system:
             "Tu es un assistant pédagogique qui aide un élève à comprendre et apprendre une leçon " +
             "par cœur, en créant du contenu de révision clair, précis et fidèle au contenu fourni." +
             NO_LATEX,
           userText:
-            `Leçon : "${lessonTitle}"\n\nContenu de la leçon :\n${lessonText}\n\n` +
+            `Leçon : "${lessonTitle}"\n\nContenu de la leçon :\n${lessonText}\n\n${difficultyHint}\n\n` +
             "Génère quatre types de contenu de révision à partir de cette leçon :\n\n" +
             `1. "lessonCards" (${lessonCardCount} cartes) : des flashcards qui RÉ-EXPLIQUENT la leçon, ` +
             "notion par notion, comme le ferait un professeur. Chaque carte a un \"concept\" court " +
@@ -535,7 +548,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       case "general-quiz": {
-        const { grade, subject } = req.body as { grade: string; subject: string };
+        const { grade, subject, topics, difficulty } = req.body as {
+          grade: string;
+          subject: string;
+          topics?: string[];
+          difficulty?: "facile" | "moyen" | "difficile";
+        };
         if (!grade || !subject) {
           return res.status(400).json({ error: "bad_request", message: "Classe ou matière manquante." });
         }
@@ -546,6 +564,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain ou passe en illimité.`,
           });
         }
+        const lower = subject.trim().toLowerCase();
+        const isAllSubjects = ["toutes les matières", "toutes les matieres"].includes(lower);
+        const isCulture = ["culture générale", "culture generale"].includes(lower);
+        const multiSubjects = subject.includes(",") ? subject.split(",").map((s) => s.trim()) : null;
+
+        const difficultyHint =
+          difficulty === "facile"
+            ? " Niveau demandé : facile — questions simples et directes, sur les notions de base."
+            : difficulty === "difficile"
+              ? " Niveau demandé : difficile — questions plus poussées, pièges et subtilités, moins " +
+                "évidentes."
+              : " Niveau demandé : moyen — un mélange équilibré de questions simples et plus poussées.";
+
+        const scopeText = isAllSubjects
+          ? `Génère un quiz de 8 questions à choix multiples mélangeant plusieurs matières différentes ` +
+            `du programme scolaire français, pour un élève de ${grade} (une matière différente à chaque ` +
+            "question si possible)."
+          : multiSubjects
+            ? `Génère un quiz de 8 questions à choix multiples mélangeant ces matières : ` +
+              `${multiSubjects.join(", ")}, pour un élève de ${grade} (programme scolaire français), en ` +
+              "répartissant les questions entre elles."
+            : isCulture
+              ? `Génère un quiz de 8 questions à choix multiples de culture générale (histoire, ` +
+                `géographie, sciences, actualité, arts, sport, monde...), adapté à un jeune de ${grade}.`
+              : topics && topics.length > 0
+                ? `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
+                  `(programme scolaire français), portant uniquement sur ces chapitres précis : ` +
+                  `${topics.join(", ")}.`
+                : `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
+                  "(programme scolaire français), couvrant des notions variées de cette matière à ce niveau " +
+                  "(différentes de questions trop basiques).";
+
         // Pas de cache ici (contrairement au quiz du jour) : chaque partie
         // doit être différente pour rester rejouable à volonté.
         const result = await callClaudeTool({
@@ -556,14 +606,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             "sinon le quiz devient inintéressant à rejouer." +
             NO_LATEX,
           userText:
-            (["culture générale", "culture generale"].includes(subject.trim().toLowerCase())
-              ? `Génère un quiz de 8 questions à choix multiples de culture générale (histoire, ` +
-                `géographie, sciences, actualité, arts, sport, monde...), adapté à un jeune de ${grade}.`
-              : `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
-                "(programme scolaire français), couvrant des notions variées de cette matière à ce niveau " +
-                "(différentes de questions trop basiques).") +
+            scopeText +
+            difficultyHint +
             " 4 options par question, une seule bonne réponse (correctIndex entre 0 et 3), avec une " +
-            "courte explication. Varie la difficulté et les sujets abordés d'une question à l'autre." +
+            "courte explication. Varie les sujets abordés d'une question à l'autre." +
             varietyInstruction(),
           tool: {
             name: "save_general_quiz",

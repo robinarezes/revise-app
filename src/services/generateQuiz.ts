@@ -11,6 +11,7 @@ type QuizGenerationResult = {
 export function generateQuiz(params: {
   lessonTitle: string;
   lessonText: string;
+  difficulty?: "facile" | "moyen" | "difficile";
 }): Promise<QuizGenerationResult> {
   return callBackend<QuizGenerationResult>("/api/ai", { action: "quiz", ...params });
 }
