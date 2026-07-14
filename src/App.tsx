@@ -55,7 +55,7 @@ function ProfileErrorScreen() {
 
 function AppGate() {
   const { session, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, isAdultMode } = useProfile();
 
   if (authLoading) return <div className="screen" />;
   if (!session) return <AuthPage />;
@@ -63,18 +63,35 @@ function AppGate() {
   if (!profile) return <ProfileErrorScreen />;
   if (!profile.grade || !profile.lv1 || !profile.lv2) return <Onboarding />;
 
+  // Le Programme suit le programme scolaire français par classe : sans objet
+  // en mode Adulte (accès direct par URL redirigé, en plus d'être caché du
+  // menu).
+  const redirectHome = <Navigate to="/" replace />;
+
   return (
     <HashRouter>
       <Suspense fallback={<div className="screen" />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/quiz-du-jour/:subject" element={<DailyQuizPage />} />
-          <Route path="/quiz-general" element={<GeneralQuizSubjectsPage />} />
+          <Route
+            path="/quiz-general"
+            element={
+              isAdultMode ? (
+                <Navigate to={`/quiz-general/${encodeURIComponent("Culture générale")}`} replace />
+              ) : (
+                <GeneralQuizSubjectsPage />
+              )
+            }
+          />
           <Route path="/quiz-general/:subject" element={<GeneralQuizPage />} />
           <Route path="/premium" element={<PremiumPage />} />
           <Route path="/lecons" element={<LeconsPage />} />
-          <Route path="/programme" element={<ProgrammePage />} />
-          <Route path="/programme/:matiere" element={<ProgrammeMatierePage />} />
+          <Route path="/programme" element={isAdultMode ? redirectHome : <ProgrammePage />} />
+          <Route
+            path="/programme/:matiere"
+            element={isAdultMode ? redirectHome : <ProgrammeMatierePage />}
+          />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/classement" element={<ClassementPage />} />
           <Route path="/settings" element={<SettingsPage />} />

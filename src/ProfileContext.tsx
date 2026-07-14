@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { todayParis } from "./dateUtils";
-import { KIDS_GRADES, type Grade } from "./grade";
+import { ADULT_GRADE, KIDS_GRADES, type Grade } from "./grade";
 import type { Language } from "./languages";
 import { supabase } from "./supabaseClient";
 
@@ -48,6 +48,7 @@ type ProfileContextValue = {
   loading: boolean;
   isPremium: boolean;
   isKidsMode: boolean;
+  isAdultMode: boolean;
   updateProfile: (patch: EditablePatch) => Promise<void>;
   addXp: (amount: number) => Promise<void>;
   recordActivity: () => Promise<void>;
@@ -188,6 +189,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const isKidsMode = profile?.grade
     ? (KIDS_GRADES as readonly string[]).includes(profile.grade)
     : false;
+  const isAdultMode = profile?.grade === ADULT_GRADE;
 
   return (
     <ProfileContext.Provider
@@ -196,6 +198,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         loading,
         isPremium,
         isKidsMode,
+        isAdultMode,
         updateProfile,
         addXp,
         recordActivity,

@@ -16,16 +16,26 @@ const DAILY_QUIZ_SUBJECTS = [
   { name: "Culture générale", label: "Culture G", icon: "🧠" },
 ];
 
+// Mode Adulte : pas de programme scolaire, tout tourne autour de la
+// culture générale.
+const ADULT_DAILY_QUIZ_SUBJECTS = [
+  { name: "Culture générale", label: "Culture G", icon: "🧠" },
+  { name: "Actualité et monde", label: "Actualité", icon: "🌍" },
+  { name: "Sciences", label: "Sciences", icon: "🔬" },
+  { name: "Histoire", label: "Histoire", icon: "🏛️" },
+];
+
 function todayStr(): string {
   return todayParis();
 }
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { profile } = useProfile();
+  const { profile, isAdultMode } = useProfile();
   const [subjects, setSubjects] = useState<(Subject & { lessonCount: number })[] | null>(null);
   const [dailyResults, setDailyResults] = useState<DailyQuizResultRow[]>([]);
   const seenLevel = useRef<number | null>(null);
+  const dailyQuizSubjects = isAdultMode ? ADULT_DAILY_QUIZ_SUBJECTS : DAILY_QUIZ_SUBJECTS;
 
   useEffect(() => {
     getSubjectsWithLessonCounts().then(setSubjects);
@@ -46,7 +56,7 @@ export default function HomePage() {
 
   const streak = profile?.streak ?? 0;
   const doneToday = dailyResults.length;
-  const streakAtRisk = streak > 0 && doneToday < DAILY_QUIZ_SUBJECTS.length;
+  const streakAtRisk = streak > 0 && doneToday < dailyQuizSubjects.length;
 
   return (
     <div className="screen">
@@ -93,7 +103,7 @@ export default function HomePage() {
           🔥 Quiz du jour
         </p>
         <div className="daily-quiz-row">
-          {DAILY_QUIZ_SUBJECTS.map((s) => {
+          {dailyQuizSubjects.map((s) => {
             const result = dailyResults.find((r) => r.subject === s.name);
             return (
               <button
@@ -123,14 +133,16 @@ export default function HomePage() {
         <p className="section-label" style={{ marginTop: 20 }}>
           Quiz
         </p>
-        <button className="quiz-general-card" onClick={() => navigate("/quiz-general")}>
-          <span className="quiz-general-icon">🏆</span>
-          <div className="card-text">
-            <p className="card-name">Quiz général</p>
-            <p className="mode-btn-subtitle">Choisis une matière et gagne des points, à volonté</p>
-          </div>
-          <span className="chevron">›</span>
-        </button>
+        {!isAdultMode ? (
+          <button className="quiz-general-card" onClick={() => navigate("/quiz-general")}>
+            <span className="quiz-general-icon">🏆</span>
+            <div className="card-text">
+              <p className="card-name">Quiz général</p>
+              <p className="mode-btn-subtitle">Choisis une matière et gagne des points, à volonté</p>
+            </div>
+            <span className="chevron">›</span>
+          </button>
+        ) : null}
 
         <button
           className="quiz-general-card quiz-culture-card"

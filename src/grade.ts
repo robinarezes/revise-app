@@ -11,7 +11,9 @@ export const GRADES = [
   "2nde",
   "1ère",
   "Terminale",
+  "Adulte",
 ] as const;
 export type Grade = (typeof GRADES)[number];
 
 export const KIDS_GRADES: readonly Grade[] = ["CP", "CE1", "CE2", "CM1", "CM2"];
+export const ADULT_GRADE: Grade = "Adulte";
