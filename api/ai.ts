@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { callClaudeTool, type ImageContent } from "./_lib/anthropic.js";
+import { callClaudeTool, streamClaudeText, type ImageContent } from "./_lib/anthropic.js";
 import { requireUserId } from "./_lib/auth.js";
 import { getCached, setCached } from "./_lib/cache.js";
 import { todayParis } from "./_lib/date.js";
@@ -483,11 +483,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: "bad_request", message: "Classe ou matière manquante." });
         }
         // Shared across every student in the same grade for the same day, so
-        // the daily quiz is only generated once per grade+subject+day.
+        // the daily quiz is only generated once per grade+subject+day. Streamé
+        // question par question (une ligne JSON par question) au lieu
+        // d'attendre les 5 questions d'un coup : la première question
+        // s'affiche dès qu'elle arrive.
         const cacheKey = `daily:${grade}:${subject}:${todayStr()}`;
-        const cached = await getCached<{ qcm: unknown[] }>(cacheKey);
+        const cached = await getCached<string>(cacheKey);
         if (cached) {
-          return res.status(200).json(cached);
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          return res.status(200).end(cached);
         }
         const quota = await checkAndConsumeQuota(userId);
         if (!quota.allowed) {
@@ -499,52 +503,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const isSchoolSubject = !["culture générale", "culture generale"].includes(
           subject.trim().toLowerCase()
         );
-        const result = await callClaudeTool({
-          system:
-            "Tu es un professeur qui prépare un petit quiz quotidien de révision, sur des notions " +
-            "de base, pour un élève. Le quiz est renouvelé chaque jour : deux quiz générés à des dates " +
-            "différentes ne doivent jamais se ressembler, même pour la même matière et le même niveau." +
-            NO_LATEX,
-          userText:
-            `Nous sommes le ${todayStr()}. Génère le quiz quotidien du jour : 5 questions à choix ` +
-            `multiples ${isSchoolSubject ? `en ${subject}` : "de culture générale (histoire, géographie, sciences, actualité, arts, sport, monde...)"}` +
-            `, pour un élève de ${grade}${isSchoolSubject ? " (programme scolaire français)" : ""}. ` +
-            "Choisis des questions variées et surprenantes plutôt que les plus évidentes/classiques du " +
-            "sujet, pour que ce quiz soit vraiment différent de celui d'hier et de demain : change les " +
-            "notions abordées, l'angle des questions et leur ordre de difficulté à chaque génération. " +
-            "Les questions doivent rester simples et rapides à répondre. 4 options par question, une " +
-            "seule bonne réponse (correctIndex entre 0 et 3), avec une courte explication." +
-            varietyInstruction(),
-          tool: {
-            name: "save_daily_quiz",
-            description: "Enregistre le quiz quotidien généré.",
-            input_schema: {
-              type: "object",
-              properties: {
-                qcm: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      question: { type: "string" },
-                      options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
-                      correctIndex: { type: "integer", minimum: 0, maximum: 3 },
-                      explanation: { type: "string" },
-                    },
-                    required: ["question", "options", "correctIndex"],
-                  },
-                  minItems: 5,
-                  maxItems: 5,
-                },
-              },
-              required: ["qcm"],
-            },
-          },
-          maxTokens: 2048,
-        });
-        await setCached(cacheKey, result);
+
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
-        return res.status(200).json(result);
+        res.status(200);
+
+        let full = "";
+        try {
+          for await (const delta of streamClaudeText({
+            system:
+              "Tu es un professeur qui prépare un petit quiz quotidien de révision, sur des notions " +
+              "de base, pour un élève. Le quiz est renouvelé chaque jour : deux quiz générés à des " +
+              "dates différentes ne doivent jamais se ressembler, même pour la même matière et le même " +
+              "niveau. Tu réponds uniquement avec des lignes JSON, une question par ligne, sans jamais " +
+              "rien ajouter d'autre (pas de texte, pas de \`\`\`, pas de numérotation)." +
+              NO_LATEX,
+            userText:
+              `Nous sommes le ${todayStr()}. Génère le quiz quotidien du jour : 5 questions à choix ` +
+              `multiples ${isSchoolSubject ? `en ${subject}` : "de culture générale (histoire, géographie, sciences, actualité, arts, sport, monde...)"}` +
+              `, pour un élève de ${grade}${isSchoolSubject ? " (programme scolaire français)" : ""}. ` +
+              "Choisis des questions variées et surprenantes plutôt que les plus évidentes/classiques du " +
+              "sujet, pour que ce quiz soit vraiment différent de celui d'hier et de demain : change les " +
+              "notions abordées, l'angle des questions et leur ordre de difficulté à chaque génération. " +
+              "Les questions doivent rester simples et rapides à répondre. 4 options par question, une " +
+              "seule bonne réponse (correctIndex entre 0 et 3), avec une courte explication." +
+              varietyInstruction() +
+              "\n\nRéponds avec EXACTEMENT 5 lignes, rien d'autre. Chaque ligne est un objet JSON sur " +
+              "une seule ligne (sans retour à la ligne à l'intérieur), au format exact : " +
+              `{"question":"...","options":["...","...","...","..."],"correctIndex":0,"explanation":"..."}`,
+            maxTokens: 1400,
+          })) {
+            full += delta;
+            res.write(delta);
+          }
+        } catch (e) {
+          if (!full) {
+            const message = e instanceof Error ? e.message : "Erreur inconnue.";
+            return res.status(502).json({ error: "upstream_error", message });
+          }
+        }
+
+        if (full.trim()) await setCached(cacheKey, full);
+        return res.end();
       }
 
       case "general-quiz": {

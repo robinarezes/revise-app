@@ -7,13 +7,14 @@ import { getDailyQuizResult, saveDailyQuizResult, type DailyQuizResultRow } from
 import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { triggerConfetti } from "../services/confetti";
-import { getDailyQuiz } from "../services/dailyQuiz";
+import { streamDailyQuiz } from "../services/dailyQuiz";
 import { getLeaderboard } from "../services/leaderboard";
 import { playCorrect, playComplete, playWrong } from "../services/sound";
 import type { QcmQuestion } from "../types";
 
 const BASE_POINTS = 10;
 const MAX_SPEED_BONUS = 10;
+const TOTAL_QUESTIONS = 5;
 
 // Barème : réponse juste = 10 points + un bonus de vitesse qui descend de 1
 // point par seconde écoulée sur cette question (jusqu'à 0). Pas de minuteur
@@ -40,7 +41,8 @@ export default function DailyQuizPage() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { profile, addXp, recordActivity } = useProfile();
-  const [questions, setQuestions] = useState<QcmQuestion[] | null>(null);
+  const [questions, setQuestions] = useState<QcmQuestion[]>([]);
+  const [streamDone, setStreamDone] = useState(false);
   const [alreadyDone, setAlreadyDone] = useState<DailyQuizResultRow | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [needsReauth, setNeedsReauth] = useState(false);
@@ -60,23 +62,42 @@ export default function DailyQuizPage() {
 
   useEffect(() => {
     if (!profile?.grade || alreadyDone !== null) return;
-    getDailyQuiz(profile.grade, subjectName)
-      .then((r) => setQuestions(r.qcm))
+    let cancelled = false;
+    streamDailyQuiz(profile.grade, subjectName, (q) => {
+      if (!cancelled) setQuestions((prev) => [...prev, q]);
+    })
+      .then(() => {
+        if (!cancelled) setStreamDone(true);
+      })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : "Erreur inconnue.");
-        setNeedsReauth(e instanceof BackendError && e.code === "unauthenticated");
+        if (cancelled) return;
+        // Si des questions sont déjà arrivées, autant laisser l'élève
+        // finir avec ce qu'on a plutôt que de tout casser sur une erreur
+        // réseau survenue en cours de route.
+        setQuestions((prev) => {
+          if (prev.length > 0) {
+            setStreamDone(true);
+            return prev;
+          }
+          setError(e instanceof Error ? e.message : "Erreur inconnue.");
+          setNeedsReauth(e instanceof BackendError && e.code === "unauthenticated");
+          return prev;
+        });
       });
+    return () => {
+      cancelled = true;
+    };
   }, [profile?.grade, subjectName, alreadyDone]);
 
   // Chrono qui compte le temps total de la partie, sans limite.
   useEffect(() => {
-    if (!questions || finished) return;
+    if (questions.length === 0 || finished) return;
     if (quizStartRef.current === null) quizStartRef.current = Date.now();
     const timer = setInterval(() => {
       setElapsed(Math.floor((Date.now() - (quizStartRef.current ?? Date.now())) / 1000));
     }, 1000);
     return () => clearInterval(timer);
-  }, [questions, finished]);
+  }, [questions.length, finished]);
 
   useEffect(() => {
     questionStartRef.current = Date.now();
@@ -94,7 +115,7 @@ export default function DailyQuizPage() {
   }, [finished]);
 
   function handleSelect(optionIndex: number) {
-    if (selected !== null || !questions) return;
+    if (selected !== null || !questions[index]) return;
     setSelected(optionIndex);
     const secondsTaken = (Date.now() - (questionStartRef.current ?? Date.now())) / 1000;
     const correct = optionIndex === questions[index].correctIndex;
@@ -110,8 +131,12 @@ export default function DailyQuizPage() {
   }
 
   function handleNext() {
-    if (!questions) return;
     if (index + 1 < questions.length) {
+      setIndex(index + 1);
+      setSelected(null);
+    } else if (!streamDone) {
+      // La question suivante n'est pas encore arrivée : on avance quand
+      // même, l'écran affichera un court chargement le temps qu'elle arrive.
       setIndex(index + 1);
       setSelected(null);
     } else {
@@ -172,7 +197,7 @@ export default function DailyQuizPage() {
     );
   }
 
-  if (!questions) {
+  if (questions.length === 0) {
     return (
       <div className="screen">
         <Header title={`Quiz du jour · ${subjectName}`} />
@@ -210,8 +235,8 @@ export default function DailyQuizPage() {
     );
   }
 
-  const question = questions[index];
-  const progress = ((index + (selected !== null ? 1 : 0)) / questions.length) * 100;
+  const question = questions[index] as QcmQuestion | undefined;
+  const progress = ((index + (selected !== null ? 1 : 0)) / TOTAL_QUESTIONS) * 100;
 
   return (
     <div className="screen">
@@ -223,44 +248,53 @@ export default function DailyQuizPage() {
         <span className="hearts">⏱ {formatElapsed(elapsed)}</span>
       </div>
       <div className="content">
-        <p className="question-text">{question.question}</p>
+        {!question ? (
+          <div className="loading-screen">
+            <div className="spinner" />
+            <p className="loading-text">Prochaine question...</p>
+          </div>
+        ) : (
+          <>
+            <p className="question-text">{question.question}</p>
 
-        <div className="options">
-          {question.options.map((option, i) => {
-            const isCorrect = i === question.correctIndex;
-            const isSelected = i === selected;
-            const showFeedback = selected !== null;
-            const className = [
-              "option",
-              showFeedback && isCorrect ? "option-correct" : "",
-              showFeedback && isSelected && !isCorrect ? "option-wrong" : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
-            return (
-              <button
-                key={i}
-                className={className}
-                onClick={() => handleSelect(i)}
-                disabled={showFeedback}
-              >
-                {option}
+            <div className="options">
+              {question.options.map((option, i) => {
+                const isCorrect = i === question.correctIndex;
+                const isSelected = i === selected;
+                const showFeedback = selected !== null;
+                const className = [
+                  "option",
+                  showFeedback && isCorrect ? "option-correct" : "",
+                  showFeedback && isSelected && !isCorrect ? "option-wrong" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <button
+                    key={i}
+                    className={className}
+                    onClick={() => handleSelect(i)}
+                    disabled={showFeedback}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selected !== null && question.explanation ? (
+              <p className="explanation">{question.explanation}</p>
+            ) : null}
+
+            <div className="spacer" />
+
+            {selected !== null ? (
+              <button className="btn btn-primary" onClick={handleNext}>
+                {index + 1 < questions.length || !streamDone ? "Suivant" : "Voir le résultat"}
               </button>
-            );
-          })}
-        </div>
-
-        {selected !== null && question.explanation ? (
-          <p className="explanation">{question.explanation}</p>
-        ) : null}
-
-        <div className="spacer" />
-
-        {selected !== null ? (
-          <button className="btn btn-primary" onClick={handleNext}>
-            {index + 1 < questions.length ? "Suivant" : "Voir le résultat"}
-          </button>
-        ) : null}
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );

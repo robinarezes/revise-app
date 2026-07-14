@@ -92,6 +92,41 @@ export async function callBackendStream(
   }
 }
 
+// Same as callBackendStream, but the body is NDJSON (one JSON object per
+// line) : onItem fires for each line as soon as it's complete, instead of
+// waiting for the whole response. Malformed lines are skipped rather than
+// failing the whole call.
+export async function callBackendNdjson<T>(
+  path: string,
+  body: unknown,
+  onItem: (item: T) => void
+): Promise<void> {
+  let buffer = "";
+  await callBackendStream(path, body, (chunk) => {
+    buffer += chunk;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        onItem(JSON.parse(trimmed) as T);
+      } catch {
+        // Ligne coupée ou mal formée : on l'ignore plutôt que de casser
+        // tout le quiz pour une question.
+      }
+    }
+  });
+  const trimmed = buffer.trim();
+  if (trimmed) {
+    try {
+      onItem(JSON.parse(trimmed) as T);
+    } catch {
+      // Idem : dernière ligne incomplète, ignorée.
+    }
+  }
+}
+
 // Same as callBackend, but for endpoints that return a binary body (audio)
 // instead of JSON.
 export async function callBackendBlob(path: string, body: unknown): Promise<Blob> {
