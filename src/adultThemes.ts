@@ -11,5 +11,6 @@ export const ADULT_THEMES: AdultTheme[] = [
   { name: "Cinéma et musique", label: "Ciné & Musique", icon: "🎬" },
   { name: "Sport", label: "Sport", icon: "⚽" },
   { name: "Économie", label: "Économie", icon: "📈" },
+  { name: "Culture financière", label: "Finances", icon: "💰" },
   { name: "Nature et animaux", label: "Nature", icon: "🌿" },
 ];

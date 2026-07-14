@@ -1,11 +1,16 @@
 import { supabase } from "../supabaseClient";
 import type {
+  ClassInvitation,
+  ClassMember,
   ExerciseQuestion,
   FlashCard,
+  FriendEntry,
   Lesson,
   LessonCard,
   QcmQuestion,
   QuizSet,
+  SchoolClass,
+  SharedLesson,
   Subject,
 } from "../types";
 
@@ -69,6 +74,7 @@ function rowToLesson(row: any): Lesson {
   return {
     id: row.id,
     subjectId: row.subject_id,
+    ownerId: row.user_id,
     title: row.title,
     photoIds: row.photo_paths ?? [],
     extractedText: row.extracted_text,
@@ -78,20 +84,27 @@ function rowToLesson(row: any): Lesson {
   };
 }
 
+// Filtre explicitement par user_id : depuis le partage de leçons dans les
+// classes, la RLS autorise aussi la lecture des leçons partagées avec moi,
+// donc ne plus s'appuyer sur elle seule pour "mes leçons".
 export async function getLessons(): Promise<Lesson[]> {
+  const userId = await requireUserId();
   const { data, error } = await supabase
     .from("lessons")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(rowToLesson);
 }
 
 export async function getLessonsBySubject(subjectId: string): Promise<Lesson[]> {
+  const userId = await requireUserId();
   const { data, error } = await supabase
     .from("lessons")
     .select("*")
     .eq("subject_id", subjectId)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(rowToLesson);
@@ -276,4 +289,209 @@ export async function getPhotoBlob(path: string): Promise<Blob | undefined> {
   const { data, error } = await supabase.storage.from("lesson-photos").download(path);
   if (error) return undefined;
   return data;
+}
+
+// --- Amis ---
+
+export async function searchUsersByUsername(
+  query: string
+): Promise<{ id: string; username: string }[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const { data, error } = await supabase.rpc("search_users_by_username", { query: trimmed });
+  if (error) throw error;
+  return (data ?? []) as { id: string; username: string }[];
+}
+
+export async function sendFriendRequest(toUserId: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase
+    .from("friend_requests")
+    .insert({ from_user_id: userId, to_user_id: toUserId });
+  if (error) throw error;
+}
+
+function rowToFriendEntry(row: any): FriendEntry {
+  return {
+    relation: row.relation,
+    requestId: row.request_id,
+    userId: row.user_id,
+    username: row.username,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+export async function getFriendData(): Promise<FriendEntry[]> {
+  const { data, error } = await supabase.rpc("get_my_friend_data");
+  if (error) throw error;
+  return ((data ?? []) as any[]).map(rowToFriendEntry);
+}
+
+export async function respondFriendRequest(requestId: string, accept: boolean): Promise<void> {
+  const { error } = await supabase
+    .from("friend_requests")
+    .update({ status: accept ? "accepted" : "declined", responded_at: new Date().toISOString() })
+    .eq("id", requestId);
+  if (error) throw error;
+}
+
+// Annule une demande envoyée, ou retire un ami déjà accepté (les deux sens
+// de la relation ont le droit de supprimer la ligne).
+export async function removeFriendRequest(requestId: string): Promise<void> {
+  const { error } = await supabase.from("friend_requests").delete().eq("id", requestId);
+  if (error) throw error;
+}
+
+// --- Classes virtuelles ---
+
+function rowToSchoolClass(row: any): SchoolClass {
+  return {
+    id: row.id,
+    name: row.name,
+    ownerId: row.owner_id,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+export async function createClass(name: string): Promise<SchoolClass> {
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from("classes")
+    .insert({ name: name.trim(), owner_id: userId })
+    .select()
+    .single();
+  if (error) throw error;
+  const created = rowToSchoolClass(data);
+  const { error: memberError } = await supabase
+    .from("class_members")
+    .insert({ class_id: created.id, user_id: userId });
+  if (memberError) throw memberError;
+  return created;
+}
+
+export async function getMyClasses(): Promise<SchoolClass[]> {
+  const { data, error } = await supabase
+    .from("classes")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToSchoolClass);
+}
+
+export async function getClass(id: string): Promise<SchoolClass | undefined> {
+  const { data } = await supabase.from("classes").select("*").eq("id", id).maybeSingle();
+  return data ? rowToSchoolClass(data) : undefined;
+}
+
+export async function deleteClass(id: string): Promise<void> {
+  const { error } = await supabase.from("classes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+function rowToClassMember(row: any): ClassMember {
+  return { userId: row.user_id, username: row.username, joinedAt: new Date(row.joined_at).getTime() };
+}
+
+export async function getClassMembers(classId: string): Promise<ClassMember[]> {
+  const { data, error } = await supabase.rpc("get_class_members", { p_class_id: classId });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map(rowToClassMember);
+}
+
+export async function leaveClass(classId: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase
+    .from("class_members")
+    .delete()
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
+export async function removeClassMember(classId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("class_members")
+    .delete()
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
+export async function inviteFriendToClass(classId: string, toUserId: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase
+    .from("class_invitations")
+    .insert({ class_id: classId, from_user_id: userId, to_user_id: toUserId });
+  if (error) throw error;
+}
+
+function rowToClassInvitation(row: any): ClassInvitation {
+  return {
+    id: row.id,
+    classId: row.class_id,
+    className: row.class_name,
+    fromUsername: row.from_username,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+export async function getMyClassInvitations(): Promise<ClassInvitation[]> {
+  const { data, error } = await supabase.rpc("get_my_class_invitations");
+  if (error) throw error;
+  return ((data ?? []) as any[]).map(rowToClassInvitation);
+}
+
+// L'ordre compte : la policy d'insertion de class_members exige que
+// l'invitation soit déjà passée à "accepted" avant d'accepter d'y insérer
+// la ligne d'appartenance.
+export async function acceptClassInvitation(invitationId: string, classId: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error: updateError } = await supabase
+    .from("class_invitations")
+    .update({ status: "accepted" })
+    .eq("id", invitationId);
+  if (updateError) throw updateError;
+  const { error: memberError } = await supabase
+    .from("class_members")
+    .insert({ class_id: classId, user_id: userId });
+  if (memberError) throw memberError;
+}
+
+export async function declineClassInvitation(invitationId: string): Promise<void> {
+  const { error } = await supabase
+    .from("class_invitations")
+    .update({ status: "declined" })
+    .eq("id", invitationId);
+  if (error) throw error;
+}
+
+function rowToSharedLesson(row: any): SharedLesson {
+  return {
+    id: row.id,
+    lessonId: row.lesson_id,
+    lessonTitle: row.lesson_title,
+    subjectName: row.subject_name,
+    sharedByUsername: row.shared_by_username,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+export async function getClassFeed(classId: string): Promise<SharedLesson[]> {
+  const { data, error } = await supabase.rpc("get_class_feed", { p_class_id: classId });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map(rowToSharedLesson);
+}
+
+export async function shareLessonToClass(classId: string, lessonId: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase
+    .from("shared_content")
+    .insert({ class_id: classId, lesson_id: lessonId, shared_by_user_id: userId });
+  if (error) throw error;
+}
+
+export async function countPendingInvitations(): Promise<number> {
+  const { data, error } = await supabase.rpc("count_pending_invitations");
+  if (error) throw error;
+  return (data as number) ?? 0;
 }

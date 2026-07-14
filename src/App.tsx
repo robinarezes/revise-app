@@ -16,6 +16,9 @@ const GeneralQuizSubjectsPage = lazy(() => import("./pages/GeneralQuizSubjects")
 const GeneralQuizPage = lazy(() => import("./pages/GeneralQuiz"));
 const PremiumPage = lazy(() => import("./pages/Premium"));
 const LeconsPage = lazy(() => import("./pages/Lecons"));
+const FriendsPage = lazy(() => import("./pages/Friends"));
+const ClassesPage = lazy(() => import("./pages/Classes"));
+const ClassDetailPage = lazy(() => import("./pages/ClassDetail"));
 const ProgrammePage = lazy(() => import("./pages/Programme"));
 const ProgrammeMatierePage = lazy(() => import("./pages/ProgrammeMatiere"));
 const StatsPage = lazy(() => import("./pages/Stats"));
@@ -91,6 +94,9 @@ function AppGate() {
           <Route path="/quiz-general/:subject" element={<GeneralQuizPage />} />
           <Route path="/premium" element={<PremiumPage />} />
           <Route path="/lecons" element={isAdultMode ? redirectHome : <LeconsPage />} />
+          <Route path="/amis" element={isAdultMode ? redirectHome : <FriendsPage />} />
+          <Route path="/classes" element={isAdultMode ? redirectHome : <ClassesPage />} />
+          <Route path="/classes/:id" element={isAdultMode ? redirectHome : <ClassDetailPage />} />
           <Route path="/programme" element={isAdultMode ? redirectHome : <ProgrammePage />} />
           <Route
             path="/programme/:matiere"

@@ -7,6 +7,7 @@ export type Subject = {
 export type Lesson = {
   id: string;
   subjectId: string;
+  ownerId: string;
   title: string;
   photoIds: string[];
   extractedText: string;
@@ -44,4 +45,46 @@ export type QuizSet = {
   lessonCards: LessonCard[];
   exercises: ExerciseQuestion[];
   generatedAt: number;
+};
+
+// --- Amis et classes virtuelles ---
+
+export type FriendRelation = "friend" | "incoming" | "outgoing";
+
+export type FriendEntry = {
+  relation: FriendRelation;
+  requestId: string;
+  userId: string;
+  username: string;
+  createdAt: number;
+};
+
+export type SchoolClass = {
+  id: string;
+  name: string;
+  ownerId: string;
+  createdAt: number;
+};
+
+export type ClassMember = {
+  userId: string;
+  username: string;
+  joinedAt: number;
+};
+
+export type ClassInvitation = {
+  id: string;
+  classId: string;
+  className: string;
+  fromUsername: string;
+  createdAt: number;
+};
+
+export type SharedLesson = {
+  id: string;
+  lessonId: string;
+  lessonTitle: string;
+  subjectName: string;
+  sharedByUsername: string;
+  createdAt: number;
 };

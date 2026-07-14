@@ -4,7 +4,12 @@ import { ADULT_THEMES } from "../adultThemes";
 import { BottomNav } from "../components/BottomNav";
 import { SubjectCard } from "../components/SubjectCard";
 import { todayParis } from "../dateUtils";
-import { getDailyQuizResults, getSubjectsWithLessonCounts, type DailyQuizResultRow } from "../db/db";
+import {
+  countPendingInvitations,
+  getDailyQuizResults,
+  getSubjectsWithLessonCounts,
+  type DailyQuizResultRow,
+} from "../db/db";
 import type { Difficulty } from "../services/generalQuiz";
 import { triggerConfetti } from "../services/confetti";
 import { getExploredThemes } from "../services/exploredThemes";
@@ -51,11 +56,19 @@ export default function HomePage() {
   const [exploredThemes, setExploredThemes] = useState<Set<string>>(new Set());
   const [fact, setFact] = useState<FactOfDay | null>(null);
   const [factError, setFactError] = useState(false);
+  const [pendingInvitations, setPendingInvitations] = useState(0);
 
   useEffect(() => {
     if (!isAdultMode) getSubjectsWithLessonCounts().then(setSubjects);
     getDailyQuizResults(todayStr())
       .then(setDailyResults)
+      .catch(() => {});
+  }, [isAdultMode]);
+
+  useEffect(() => {
+    if (isAdultMode) return;
+    countPendingInvitations()
+      .then(setPendingInvitations)
       .catch(() => {});
   }, [isAdultMode]);
 
@@ -86,16 +99,49 @@ export default function HomePage() {
       <div className="tab-header" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span className="tab-header-title">{isAdultMode ? "Culture Générale" : "Mes matières"}</span>
-          <div className="stat-pills">
-            <span className="stat-pill">
-              <span className="stat-pill-icon">🔥</span>
-              {streak}
-            </span>
-            <span className="stat-pill">
-              <span className="stat-pill-icon">⭐</span>
-              {xp}
-            </span>
-            <span className="stat-pill">🏅 Niv. {level}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="stat-pills">
+              <span className="stat-pill">
+                <span className="stat-pill-icon">🔥</span>
+                {streak}
+              </span>
+              <span className="stat-pill">
+                <span className="stat-pill-icon">⭐</span>
+                {xp}
+              </span>
+              <span className="stat-pill">🏅 Niv. {level}</span>
+            </div>
+            {!isAdultMode ? (
+              <button
+                className="stat-pill"
+                style={{ position: "relative", cursor: "pointer" }}
+                onClick={() => navigate("/classes")}
+              >
+                🏫 Classe
+                {pendingInvitations > 0 ? (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -6,
+                      right: -6,
+                      background: "var(--danger)",
+                      color: "#fff",
+                      borderRadius: "999px",
+                      minWidth: 18,
+                      height: 18,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 4px",
+                    }}
+                  >
+                    {pendingInvitations}
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="progress-track" style={{ height: 8 }}>
