@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ADULT_GRADE } from "../grade";
 import { useProfile } from "../ProfileContext";
 import { GradeSelection } from "./GradeSelection";
 import { LanguageSelection } from "./LanguageSelection";
@@ -16,7 +17,9 @@ export function Onboarding() {
       <GradeSelection
         onChosen={(grade) => {
           updateProfile({ grade });
-          setStep("lv1");
+          // Le mode Adulte n'a pas de programme scolaire : pas besoin de
+          // LV1/LV2, qui ne servent qu'à ça.
+          if (grade !== ADULT_GRADE) setStep("lv1");
         }}
       />
     );

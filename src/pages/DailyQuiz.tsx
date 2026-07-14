@@ -19,8 +19,11 @@ const TOTAL_QUESTIONS = 5;
 // Barème : réponse juste = 10 points + un bonus de vitesse qui descend de 1
 // point par seconde écoulée sur cette question (jusqu'à 0). Pas de minuteur
 // qui coupe la partie : on peut toujours répondre, juste avec moins de bonus.
-function pointsForAnswer(correct: boolean, secondsTaken: number): number {
+// En mode Adulte, le principe est de prendre son temps : pas de bonus de
+// vitesse ni de chrono affiché, pour ne pas mettre de pression.
+function pointsForAnswer(correct: boolean, secondsTaken: number, noRush: boolean): number {
   if (!correct) return 0;
+  if (noRush) return BASE_POINTS;
   const bonus = Math.max(0, MAX_SPEED_BONUS - Math.floor(secondsTaken));
   return BASE_POINTS + bonus;
 }
@@ -40,7 +43,7 @@ export default function DailyQuizPage() {
   const subjectName = decodeURIComponent(subject);
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { profile, addXp, recordActivity } = useProfile();
+  const { profile, addXp, recordActivity, isAdultMode } = useProfile();
   const [questions, setQuestions] = useState<QcmQuestion[]>([]);
   const [streamDone, setStreamDone] = useState(false);
   const [alreadyDone, setAlreadyDone] = useState<DailyQuizResultRow | null | undefined>(undefined);
@@ -119,7 +122,7 @@ export default function DailyQuizPage() {
     setSelected(optionIndex);
     const secondsTaken = (Date.now() - (questionStartRef.current ?? Date.now())) / 1000;
     const correct = optionIndex === questions[index].correctIndex;
-    const points = pointsForAnswer(correct, secondsTaken);
+    const points = pointsForAnswer(correct, secondsTaken, isAdultMode);
     if (correct) {
       setCorrectCount((c) => c + 1);
       addXp(points);
@@ -219,7 +222,9 @@ export default function DailyQuizPage() {
           <p className="score-text">
             {correctCount} / {questions.length}
           </p>
-          <p className="score-label">bonnes réponses en {formatElapsed(elapsed)}</p>
+          <p className="score-label">
+            bonnes réponses{isAdultMode ? "" : ` en ${formatElapsed(elapsed)}`}
+          </p>
           <span className="xp-earned">🏆 +{totalPoints} points</span>
           {percentile !== null && percentile > 0 ? (
             <p className="hint">Tu as fait mieux que {percentile}% des joueurs cette semaine !</p>
@@ -245,7 +250,7 @@ export default function DailyQuizPage() {
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
-        <span className="hearts">⏱ {formatElapsed(elapsed)}</span>
+        {!isAdultMode ? <span className="hearts">⏱ {formatElapsed(elapsed)}</span> : null}
       </div>
       <div className="content">
         {!question ? (

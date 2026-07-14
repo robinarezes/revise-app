@@ -6,6 +6,7 @@ import { useProfile } from "../ProfileContext";
 import { BackendError } from "../services/backendClient";
 import { triggerConfetti } from "../services/confetti";
 import { getCurriculumTopics } from "../services/curriculum";
+import { markThemeExplored } from "../services/exploredThemes";
 import { getGeneralQuiz, type Difficulty } from "../services/generalQuiz";
 import { getPersonalBest, reportScore } from "../services/personalBest";
 import { playCorrect, playComplete, playWrong } from "../services/sound";
@@ -24,9 +25,12 @@ export default function GeneralQuizPage() {
   const difficulty = (searchParams.get("difficulty") as Difficulty | null) ?? "moyen";
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { profile, addXp, recordActivity } = useProfile();
+  const { profile, addXp, recordActivity, isAdultMode } = useProfile();
 
-  const isChapterable = !subjectName.includes(",") && !SPECIAL_SUBJECTS.includes(subjectName.toLowerCase());
+  // En mode Adulte, pas de programme scolaire donc pas de chapitres à
+  // choisir : on va toujours directement au quiz, quel que soit le thème.
+  const isChapterable =
+    !isAdultMode && !subjectName.includes(",") && !SPECIAL_SUBJECTS.includes(subjectName.toLowerCase());
   const [scope, setScope] = useState<Scope>(isChapterable ? null : "tout");
   const [availableTopics, setAvailableTopics] = useState<string[] | null>(null);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -105,6 +109,7 @@ export default function GeneralQuizPage() {
       setSelected(null);
     } else {
       recordActivity();
+      if (isAdultMode) markThemeExplored(subjectName);
       if (correctCount === questions.length) {
         addXp(PERFECT_BONUS);
       }

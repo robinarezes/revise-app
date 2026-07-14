@@ -20,9 +20,11 @@ export function BottomNav() {
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   }
 
-  // Le Programme suit le programme scolaire français par classe : sans
-  // objet en mode Adulte, qui tourne autour de la culture générale.
-  const tabs = isAdultMode ? TABS.filter((t) => t.path !== "/programme") : TABS;
+  // Programme (programme scolaire) et Leçons (cours scannés) n'ont pas
+  // d'objet en mode Adulte, qui tourne autour de la culture générale.
+  const tabs = isAdultMode
+    ? TABS.filter((t) => t.path !== "/programme" && t.path !== "/lecons")
+    : TABS;
 
   return (
     <div className="bottom-nav">

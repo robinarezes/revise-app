@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ADULT_THEMES } from "../adultThemes";
 import { BottomNav } from "../components/BottomNav";
 import { SubjectCard } from "../components/SubjectCard";
 import { todayParis } from "../dateUtils";
 import { getDailyQuizResults, getSubjectsWithLessonCounts, type DailyQuizResultRow } from "../db/db";
+import type { Difficulty } from "../services/generalQuiz";
 import { triggerConfetti } from "../services/confetti";
+import { getExploredThemes } from "../services/exploredThemes";
+import { getFactOfDay, type FactOfDay } from "../services/factOfDay";
 import { levelInfo } from "../services/level";
 import { useProfile } from "../ProfileContext";
+import { colorForSubject, gradientForSubject } from "../theme";
 import type { Subject } from "../types";
 
 const DAILY_QUIZ_SUBJECTS = [
@@ -25,6 +30,12 @@ const ADULT_DAILY_QUIZ_SUBJECTS = [
   { name: "Histoire", label: "Histoire", icon: "🏛️" },
 ];
 
+const DIFFICULTY_OPTIONS: { value: Difficulty; label: string; icon: string }[] = [
+  { value: "facile", label: "Facile", icon: "🙂" },
+  { value: "moyen", label: "Moyen", icon: "🙃" },
+  { value: "difficile", label: "Difficile", icon: "🔥" },
+];
+
 function todayStr(): string {
   return todayParis();
 }
@@ -36,13 +47,25 @@ export default function HomePage() {
   const [dailyResults, setDailyResults] = useState<DailyQuizResultRow[]>([]);
   const seenLevel = useRef<number | null>(null);
   const dailyQuizSubjects = isAdultMode ? ADULT_DAILY_QUIZ_SUBJECTS : DAILY_QUIZ_SUBJECTS;
+  const [difficulty, setDifficulty] = useState<Difficulty>("moyen");
+  const [exploredThemes, setExploredThemes] = useState<Set<string>>(new Set());
+  const [fact, setFact] = useState<FactOfDay | null>(null);
+  const [factError, setFactError] = useState(false);
 
   useEffect(() => {
-    getSubjectsWithLessonCounts().then(setSubjects);
+    if (!isAdultMode) getSubjectsWithLessonCounts().then(setSubjects);
     getDailyQuizResults(todayStr())
       .then(setDailyResults)
       .catch(() => {});
-  }, []);
+  }, [isAdultMode]);
+
+  useEffect(() => {
+    if (!isAdultMode) return;
+    setExploredThemes(getExploredThemes());
+    getFactOfDay()
+      .then(setFact)
+      .catch(() => setFactError(true));
+  }, [isAdultMode]);
 
   const xp = profile?.xp ?? 0;
   const { level, progress } = levelInfo(xp);
@@ -62,7 +85,7 @@ export default function HomePage() {
     <div className="screen">
       <div className="tab-header" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span className="tab-header-title">Mes matières</span>
+          <span className="tab-header-title">{isAdultMode ? "Culture Générale" : "Mes matières"}</span>
           <div className="stat-pills">
             <span className="stat-pill">
               <span className="stat-pill-icon">🔥</span>
@@ -88,16 +111,39 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        <button className="scan-hero-btn" onClick={() => navigate("/capture")}>
-          <span className="scan-hero-icon">📸</span>
-          <div className="card-text">
-            <p className="scan-hero-title">Scanner un cours</p>
-            <p className="scan-hero-subtitle">Prends en photo tes feuilles, l'IA crée la leçon</p>
+        {!isAdultMode ? (
+          <button className="scan-hero-btn" onClick={() => navigate("/capture")}>
+            <span className="scan-hero-icon">📸</span>
+            <div className="card-text">
+              <p className="scan-hero-title">Scanner un cours</p>
+              <p className="scan-hero-subtitle">Prends en photo tes feuilles, l'IA crée la leçon</p>
+            </div>
+            <span className="chevron" style={{ color: "var(--yellow-text)" }}>
+              ›
+            </span>
+          </button>
+        ) : null}
+
+        {isAdultMode ? (
+          <div className="quiz-general-card" style={{ alignItems: "flex-start" }}>
+            <span className="quiz-general-icon">💡</span>
+            <div className="card-text">
+              <p className="card-name">Le saviez-vous ?</p>
+              {fact ? (
+                <>
+                  <p className="mode-btn-subtitle">{fact.fact}</p>
+                  <span className="grade-pill" style={{ marginTop: 6 }}>
+                    {fact.theme}
+                  </span>
+                </>
+              ) : factError ? (
+                <p className="mode-btn-subtitle">Indisponible pour l'instant, réessaie plus tard.</p>
+              ) : (
+                <p className="mode-btn-subtitle">Chargement du fait du jour...</p>
+              )}
+            </div>
           </div>
-          <span className="chevron" style={{ color: "var(--yellow-text)" }}>
-            ›
-          </span>
-        </button>
+        ) : null}
 
         <p className="section-label" style={{ marginTop: 20 }}>
           🔥 Quiz du jour
@@ -144,22 +190,68 @@ export default function HomePage() {
           </button>
         ) : null}
 
-        <button
-          className="quiz-general-card quiz-culture-card"
-          onClick={() => navigate(`/quiz-general/${encodeURIComponent("Culture générale")}`)}
-        >
-          <span className="quiz-general-icon">🧠</span>
-          <div className="card-text">
-            <p className="card-name">Culture Générale</p>
-            <p className="mode-btn-subtitle">
-              Histoire, géo, sciences, actu... teste-toi hors du programme scolaire
+        {!isAdultMode ? (
+          <button
+            className="quiz-general-card quiz-culture-card"
+            onClick={() => navigate(`/quiz-general/${encodeURIComponent("Culture générale")}`)}
+          >
+            <span className="quiz-general-icon">🧠</span>
+            <div className="card-text">
+              <p className="card-name">Culture Générale</p>
+              <p className="mode-btn-subtitle">
+                Histoire, géo, sciences, actu... teste-toi hors du programme scolaire
+              </p>
+            </div>
+            <span className="chevron">›</span>
+          </button>
+        ) : null}
+
+        {isAdultMode ? (
+          <>
+            <label className="field-label">Difficulté</label>
+            <div className="option-pills">
+              {DIFFICULTY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`option-pill ${difficulty === opt.value ? "option-pill-selected" : ""}`}
+                  onClick={() => setDifficulty(opt.value)}
+                >
+                  {opt.icon} {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="section-label" style={{ marginTop: 16 }}>
+              Thèmes à explorer
             </p>
-          </div>
-          <span className="chevron">›</span>
-        </button>
+            <div className="card-list">
+              {ADULT_THEMES.map((theme) => {
+                const isExplored = exploredThemes.has(theme.name);
+                return (
+                  <button
+                    key={theme.name}
+                    className="subject-card"
+                    style={{ borderLeftColor: colorForSubject(theme.name) }}
+                    onClick={() =>
+                      navigate(`/quiz-general/${encodeURIComponent(theme.name)}?difficulty=${difficulty}`)
+                    }
+                  >
+                    <div className="subject-icon" style={{ background: gradientForSubject(theme.name) }}>
+                      {theme.icon}
+                    </div>
+                    <div className="card-text">
+                      <p className="card-name">{theme.label}</p>
+                    </div>
+                    <span className="chevron">{isExplored ? "✅" : "›"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : null}
       </div>
 
-      {subjects && subjects.length === 0 ? (
+      {!isAdultMode && subjects && subjects.length === 0 ? (
         <div className="empty-state">
           <div className="mascot">📚</div>
           <p className="title-md">Aucune leçon pour l'instant</p>
@@ -167,7 +259,7 @@ export default function HomePage() {
             Prends en photo ton premier cours, l'IA le classera automatiquement par matière.
           </p>
         </div>
-      ) : (
+      ) : !isAdultMode ? (
         <div className="content">
           <div className="card-list">
             {subjects?.map((s) => (
@@ -180,7 +272,7 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      )}
+      ) : null}
 
       <BottomNav />
     </div>

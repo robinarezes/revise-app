@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
+import { ADULT_GRADE } from "./grade";
 import AuthPage from "./pages/Auth";
 import { Onboarding } from "./pages/Onboarding";
 import { ProfileProvider, useProfile } from "./ProfileContext";
@@ -61,7 +62,10 @@ function AppGate() {
   if (!session) return <AuthPage />;
   if (profileLoading) return <div className="screen" />;
   if (!profile) return <ProfileErrorScreen />;
-  if (!profile.grade || !profile.lv1 || !profile.lv2) return <Onboarding />;
+  // Le mode Adulte n'a pas de programme scolaire : LV1/LV2 ne lui servent à
+  // rien, l'onboarding s'arrête donc dès la classe choisie.
+  const needsLanguages = profile.grade !== ADULT_GRADE;
+  if (!profile.grade || (needsLanguages && (!profile.lv1 || !profile.lv2))) return <Onboarding />;
 
   // Le Programme suit le programme scolaire français par classe : sans objet
   // en mode Adulte (accès direct par URL redirigé, en plus d'être caché du
@@ -86,7 +90,7 @@ function AppGate() {
           />
           <Route path="/quiz-general/:subject" element={<GeneralQuizPage />} />
           <Route path="/premium" element={<PremiumPage />} />
-          <Route path="/lecons" element={<LeconsPage />} />
+          <Route path="/lecons" element={isAdultMode ? redirectHome : <LeconsPage />} />
           <Route path="/programme" element={isAdultMode ? redirectHome : <ProgrammePage />} />
           <Route
             path="/programme/:matiere"
@@ -95,7 +99,7 @@ function AppGate() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/classement" element={<ClassementPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/capture" element={<CapturePage />} />
+          <Route path="/capture" element={isAdultMode ? redirectHome : <CapturePage />} />
           <Route path="/matiere/:id" element={<MatierePage />} />
           <Route path="/lecon/:id" element={<LeconPage />} />
           <Route path="/revision/:leconId" element={<RevisionPage />} />

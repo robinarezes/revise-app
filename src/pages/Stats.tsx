@@ -1,18 +1,25 @@
 import { useEffect, useState } from "react";
+import { ADULT_THEMES } from "../adultThemes";
 import { BottomNav } from "../components/BottomNav";
 import { getLessons } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { getExploredThemes } from "../services/exploredThemes";
 import { levelInfo } from "../services/level";
 
 type Badge = { icon: string; label: string; unlocked: boolean };
 
 export default function StatsPage() {
-  const { profile } = useProfile();
+  const { profile, isAdultMode } = useProfile();
   const [lessonCount, setLessonCount] = useState(0);
+  const [exploredCount, setExploredCount] = useState(0);
 
   useEffect(() => {
-    getLessons().then((lessons) => setLessonCount(lessons.length));
-  }, []);
+    if (isAdultMode) {
+      setExploredCount(getExploredThemes().size);
+    } else {
+      getLessons().then((lessons) => setLessonCount(lessons.length));
+    }
+  }, [isAdultMode]);
 
   const xp = profile?.xp ?? 0;
   const streak = profile?.streak ?? 0;
@@ -20,18 +27,32 @@ export default function StatsPage() {
   const freezes = profile?.streak_freezes ?? 0;
   const { level } = levelInfo(xp);
 
-  const badges: Badge[] = [
-    { icon: "🌱", label: "Première leçon", unlocked: lessonCount >= 1 },
-    { icon: "📚", label: "10 leçons", unlocked: lessonCount >= 10 },
-    { icon: "🔥", label: "3 jours de suite", unlocked: streak >= 3 },
-    { icon: "🔥🔥", label: "7 jours de suite", unlocked: streak >= 7 },
-    { icon: "🔥🔥🔥", label: "30 jours de suite", unlocked: streak >= 30 },
-    { icon: "💯", label: "100 XP", unlocked: xp >= 100 },
-    { icon: "🎓", label: "500 XP", unlocked: xp >= 500 },
-    { icon: "👑", label: "1000 XP", unlocked: xp >= 1000 },
-    { icon: "🏅", label: "Niveau 5", unlocked: level >= 5 },
-    { icon: "🥇", label: "Niveau 10", unlocked: level >= 10 },
-  ];
+  const badges: Badge[] = isAdultMode
+    ? [
+        { icon: "🧭", label: "Premier thème exploré", unlocked: exploredCount >= 1 },
+        { icon: "🗺️", label: "5 thèmes explorés", unlocked: exploredCount >= 5 },
+        { icon: "🌐", label: "Tous les thèmes explorés", unlocked: exploredCount >= ADULT_THEMES.length },
+        { icon: "🔥", label: "3 jours de suite", unlocked: streak >= 3 },
+        { icon: "🔥🔥", label: "7 jours de suite", unlocked: streak >= 7 },
+        { icon: "🔥🔥🔥", label: "30 jours de suite", unlocked: streak >= 30 },
+        { icon: "💯", label: "100 XP", unlocked: xp >= 100 },
+        { icon: "🎓", label: "500 XP", unlocked: xp >= 500 },
+        { icon: "👑", label: "1000 XP", unlocked: xp >= 1000 },
+        { icon: "🏅", label: "Niveau 5", unlocked: level >= 5 },
+        { icon: "🥇", label: "Niveau 10", unlocked: level >= 10 },
+      ]
+    : [
+        { icon: "🌱", label: "Première leçon", unlocked: lessonCount >= 1 },
+        { icon: "📚", label: "10 leçons", unlocked: lessonCount >= 10 },
+        { icon: "🔥", label: "3 jours de suite", unlocked: streak >= 3 },
+        { icon: "🔥🔥", label: "7 jours de suite", unlocked: streak >= 7 },
+        { icon: "🔥🔥🔥", label: "30 jours de suite", unlocked: streak >= 30 },
+        { icon: "💯", label: "100 XP", unlocked: xp >= 100 },
+        { icon: "🎓", label: "500 XP", unlocked: xp >= 500 },
+        { icon: "👑", label: "1000 XP", unlocked: xp >= 1000 },
+        { icon: "🏅", label: "Niveau 5", unlocked: level >= 5 },
+        { icon: "🥇", label: "Niveau 10", unlocked: level >= 10 },
+      ];
 
   return (
     <div className="screen">
@@ -61,8 +82,10 @@ export default function StatsPage() {
             <div className="stat-card-label">Niveau</div>
           </div>
           <div className="stat-card">
-            <div className="stat-card-value">{lessonCount}</div>
-            <div className="stat-card-label">Leçons ajoutées</div>
+            <div className="stat-card-value">
+              {isAdultMode ? `${exploredCount}/${ADULT_THEMES.length}` : lessonCount}
+            </div>
+            <div className="stat-card-label">{isAdultMode ? "Thèmes explorés" : "Leçons ajoutées"}</div>
           </div>
           <div className="stat-card">
             <div className="stat-card-value">🔥 {longestStreak}</div>

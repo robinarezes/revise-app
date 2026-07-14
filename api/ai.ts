@@ -500,9 +500,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             message: `Limite gratuite du jour atteinte (${quota.limit}). Réessaie demain.`,
           });
         }
-        const isSchoolSubject = !["culture générale", "culture generale"].includes(
+        // Le mode Adulte n'a pas de programme scolaire : ni "élève", ni
+        // "programme scolaire français" ne doivent apparaître dans le prompt.
+        const isAdult = grade.trim() === "Adulte";
+        const isCultureSubject = ["culture générale", "culture generale"].includes(
           subject.trim().toLowerCase()
         );
+        const isSchoolSubject = !isAdult && !isCultureSubject;
+        const subjectDescription = isSchoolSubject
+          ? `en ${subject}`
+          : isCultureSubject
+            ? "de culture générale (histoire, géographie, sciences, actualité, arts, sport, monde...)"
+            : `de culture générale sur le thème "${subject}"`;
 
         res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
@@ -520,8 +529,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               NO_LATEX,
             userText:
               `Nous sommes le ${todayStr()}. Génère le quiz quotidien du jour : 5 questions à choix ` +
-              `multiples ${isSchoolSubject ? `en ${subject}` : "de culture générale (histoire, géographie, sciences, actualité, arts, sport, monde...)"}` +
-              `, pour un élève de ${grade}${isSchoolSubject ? " (programme scolaire français)" : ""}. ` +
+              `multiples ${subjectDescription}` +
+              `, pour ${isAdult ? "un adulte qui s'entraîne à son rythme" : `un élève de ${grade}${isSchoolSubject ? " (programme scolaire français)" : ""}`}. ` +
               "Choisis des questions variées et surprenantes plutôt que les plus évidentes/classiques du " +
               "sujet, pour que ce quiz soit vraiment différent de celui d'hier et de demain : change les " +
               "notions abordées, l'angle des questions et leur ordre de difficulté à chaque génération. " +
@@ -568,6 +577,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const isAllSubjects = ["toutes les matières", "toutes les matieres"].includes(lower);
         const isCulture = ["culture générale", "culture generale"].includes(lower);
         const multiSubjects = subject.includes(",") ? subject.split(",").map((s) => s.trim()) : null;
+        // Le mode Adulte n'a pas de programme scolaire : les thèmes qu'il
+        // propose (Histoire, Sciences...) sont demandés hors cadre scolaire.
+        const isAdult = grade.trim() === "Adulte";
 
         const difficultyHint =
           difficulty === "facile"
@@ -587,14 +599,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "répartissant les questions entre elles."
             : isCulture
               ? `Génère un quiz de 8 questions à choix multiples de culture générale (histoire, ` +
-                `géographie, sciences, actualité, arts, sport, monde...), adapté à un jeune de ${grade}.`
-              : topics && topics.length > 0
-                ? `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
-                  `(programme scolaire français), portant uniquement sur ces chapitres précis : ` +
-                  `${topics.join(", ")}.`
-                : `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ${grade} ` +
-                  "(programme scolaire français), couvrant des notions variées de cette matière à ce niveau " +
-                  "(différentes de questions trop basiques).";
+                `géographie, sciences, actualité, arts, sport, monde...), ${isAdult ? "pour un adulte qui s'entraîne à son rythme" : `adapté à un jeune de ${grade}`}.`
+              : isAdult
+                ? `Génère un quiz de 8 questions à choix multiples de culture générale sur le thème ` +
+                  `"${subject}", pour un adulte qui s'entraîne à son rythme, sans lien avec un programme ` +
+                  "scolaire."
+                : topics && topics.length > 0
+                  ? `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ` +
+                    `${grade} (programme scolaire français), portant uniquement sur ces chapitres précis : ` +
+                    `${topics.join(", ")}.`
+                  : `Génère un quiz de 8 questions à choix multiples en ${subject}, pour un élève de ` +
+                    `${grade} (programme scolaire français), couvrant des notions variées de cette matière ` +
+                    "à ce niveau (différentes de questions trop basiques).";
 
         // Pas de cache ici (contrairement au quiz du jour) : chaque partie
         // doit être différente pour rester rejouable à volonté.
@@ -685,6 +701,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.setHeader("Content-Type", "audio/mpeg");
         res.setHeader("X-Quota-Remaining", String(quota.remaining));
         return res.status(200).send(audioBuffer);
+      }
+
+      case "fact-of-day": {
+        // Un seul fait généré par jour, partagé par tout le monde (comme le
+        // quiz du jour) : pas la peine de re-générer par utilisateur, ni de
+        // consommer son quota pour ça.
+        const cacheKey = `fact-of-day:${todayStr()}`;
+        const cached = await getCached<{ fact: string; theme: string }>(cacheKey);
+        if (cached) return res.status(200).json(cached);
+
+        const result = await callClaudeTool<{ fact: string; theme: string }>({
+          system:
+            "Tu écris un \"le saviez-vous\" quotidien de culture générale pour des adultes curieux, " +
+            "à la fois surprenant et fiable (rien d'inventé)." + NO_LATEX,
+          userText:
+            `Nous sommes le ${todayStr()}. Donne UN fait de culture générale surprenant et vérifiable ` +
+            "(histoire, sciences, géographie, arts, nature, économie...), en 2 à 4 phrases maximum, " +
+            "clair et intéressant pour un adulte. Précise aussi dans quel thème il s'inscrit (ex: " +
+            "\"Histoire\", \"Sciences\", \"Nature\"). Doit être différent des faits les plus connus/" +
+            "rebattus sur le sujet." + varietyInstruction(),
+          tool: {
+            name: "save_fact_of_day",
+            description: "Enregistre le fait du jour.",
+            input_schema: {
+              type: "object",
+              properties: {
+                fact: { type: "string" },
+                theme: { type: "string" },
+              },
+              required: ["fact", "theme"],
+            },
+          },
+          maxTokens: 512,
+        });
+        await setCached(cacheKey, result);
+        return res.status(200).json(result);
       }
 
       case "leaderboard": {
