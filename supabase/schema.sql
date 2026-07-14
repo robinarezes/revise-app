@@ -212,6 +212,10 @@ create policy "lesson_photos_delete_own" on storage.objects
   );
 
 -- 6. Amis et classes virtuelles ----------------------------------------------
+-- Toutes les tables sont créées d'abord, puis toutes les policies ensuite :
+-- comme certaines policies référencent plusieurs de ces tables entre elles
+-- (ex: class_members_insert a besoin de class_invitations), les créer dans
+-- cet ordre évite toute référence à une table qui n'existe pas encore.
 
 create table public.friend_requests (
   id uuid primary key default gen_random_uuid(),
@@ -225,18 +229,6 @@ create table public.friend_requests (
 );
 
 alter table public.friend_requests enable row level security;
-
-create policy "friend_requests_select" on public.friend_requests
-  for select using (auth.uid() = from_user_id or auth.uid() = to_user_id);
-
-create policy "friend_requests_insert" on public.friend_requests
-  for insert with check (auth.uid() = from_user_id);
-
-create policy "friend_requests_update" on public.friend_requests
-  for update using (auth.uid() = to_user_id) with check (auth.uid() = to_user_id);
-
-create policy "friend_requests_delete" on public.friend_requests
-  for delete using (auth.uid() = from_user_id or auth.uid() = to_user_id);
 
 create table public.classes (
   id uuid primary key default gen_random_uuid(),
@@ -256,6 +248,29 @@ create table public.class_members (
 
 alter table public.class_members enable row level security;
 
+create table public.class_invitations (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  from_user_id uuid not null references auth.users(id) on delete cascade,
+  to_user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  unique (class_id, to_user_id)
+);
+
+alter table public.class_invitations enable row level security;
+
+create table public.shared_content (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  lesson_id uuid not null references public.lessons(id) on delete cascade,
+  shared_by_user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (class_id, lesson_id)
+);
+
+alter table public.shared_content enable row level security;
+
 -- Security definer : évite la récursion RLS quand class_members a besoin de
 -- vérifier l'appartenance à la classe dans sa PROPRE policy de select, et
 -- sert aussi aux autres tables (shared_content, lessons, quiz_sets) pour
@@ -272,6 +287,18 @@ as $$
     where class_id = p_class_id and user_id = p_user_id
   );
 $$;
+
+create policy "friend_requests_select" on public.friend_requests
+  for select using (auth.uid() = from_user_id or auth.uid() = to_user_id);
+
+create policy "friend_requests_insert" on public.friend_requests
+  for insert with check (auth.uid() = from_user_id);
+
+create policy "friend_requests_update" on public.friend_requests
+  for update using (auth.uid() = to_user_id) with check (auth.uid() = to_user_id);
+
+create policy "friend_requests_delete" on public.friend_requests
+  for delete using (auth.uid() = from_user_id or auth.uid() = to_user_id);
 
 create policy "classes_select" on public.classes
   for select using (auth.uid() = owner_id or public.is_class_member(id, auth.uid()));
@@ -315,18 +342,6 @@ create policy "class_members_delete" on public.class_members
     or exists (select 1 from public.classes c where c.id = class_id and c.owner_id = auth.uid())
   );
 
-create table public.class_invitations (
-  id uuid primary key default gen_random_uuid(),
-  class_id uuid not null references public.classes(id) on delete cascade,
-  from_user_id uuid not null references auth.users(id) on delete cascade,
-  to_user_id uuid not null references auth.users(id) on delete cascade,
-  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
-  created_at timestamptz not null default now(),
-  unique (class_id, to_user_id)
-);
-
-alter table public.class_invitations enable row level security;
-
 create policy "class_invitations_select" on public.class_invitations
   for select using (
     auth.uid() = from_user_id
@@ -359,17 +374,6 @@ create policy "class_invitations_delete" on public.class_invitations
     or auth.uid() = to_user_id
     or exists (select 1 from public.classes c where c.id = class_id and c.owner_id = auth.uid())
   );
-
-create table public.shared_content (
-  id uuid primary key default gen_random_uuid(),
-  class_id uuid not null references public.classes(id) on delete cascade,
-  lesson_id uuid not null references public.lessons(id) on delete cascade,
-  shared_by_user_id uuid not null references auth.users(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  unique (class_id, lesson_id)
-);
-
-alter table public.shared_content enable row level security;
 
 create policy "shared_content_select" on public.shared_content
   for select using (

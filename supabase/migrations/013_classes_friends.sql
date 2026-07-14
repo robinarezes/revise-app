@@ -7,9 +7,8 @@
 -- 0. Reset : ce script est sûr à coller et exécuter plusieurs fois, même si
 -- une tentative précédente s'est arrêtée en cours de route (Postgres exécute
 -- un lot de requêtes collées comme une seule transaction "tout ou rien" : si
--- une instruction échoue, rien de ce lot n'a été appliqué, mais un lot
--- précédent différent a pu partiellement réussir avant). On repart toujours
--- d'une table rase avant de tout recréer.
+-- une instruction échoue, rien de ce lot n'a été appliqué). On repart
+-- toujours d'une table rase avant de tout recréer.
 
 drop function if exists public.count_pending_invitations();
 drop function if exists public.get_class_feed(uuid);
@@ -32,7 +31,11 @@ drop table if exists public.classes cascade;
 drop table if exists public.friend_requests cascade;
 drop function if exists public.is_class_member(uuid, uuid);
 
--- 1. Demandes d'ami --------------------------------------------------------
+-- 1. Tables ------------------------------------------------------------------
+-- Toutes les tables sont créées d'abord, puis toutes les policies ensuite :
+-- comme certaines policies référencent plusieurs de ces tables entre elles
+-- (ex: class_members_insert a besoin de class_invitations), les créer dans
+-- cet ordre évite toute référence à une table qui n'existe pas encore.
 
 create table public.friend_requests (
   id uuid primary key default gen_random_uuid(),
@@ -46,20 +49,6 @@ create table public.friend_requests (
 );
 
 alter table public.friend_requests enable row level security;
-
-create policy "friend_requests_select" on public.friend_requests
-  for select using (auth.uid() = from_user_id or auth.uid() = to_user_id);
-
-create policy "friend_requests_insert" on public.friend_requests
-  for insert with check (auth.uid() = from_user_id);
-
-create policy "friend_requests_update" on public.friend_requests
-  for update using (auth.uid() = to_user_id) with check (auth.uid() = to_user_id);
-
-create policy "friend_requests_delete" on public.friend_requests
-  for delete using (auth.uid() = from_user_id or auth.uid() = to_user_id);
-
--- 2. Classes virtuelles -----------------------------------------------------
 
 create table public.classes (
   id uuid primary key default gen_random_uuid(),
@@ -79,10 +68,35 @@ create table public.class_members (
 
 alter table public.class_members enable row level security;
 
+create table public.class_invitations (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  from_user_id uuid not null references auth.users(id) on delete cascade,
+  to_user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  unique (class_id, to_user_id)
+);
+
+alter table public.class_invitations enable row level security;
+
+create table public.shared_content (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  lesson_id uuid not null references public.lessons(id) on delete cascade,
+  shared_by_user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (class_id, lesson_id)
+);
+
+alter table public.shared_content enable row level security;
+
+-- 2. Fonction utilitaire -------------------------------------------------------
 -- Security definer : évite la récursion RLS quand class_members a besoin de
 -- vérifier l'appartenance à la classe dans sa PROPRE policy de select, et
 -- sert aussi aux autres tables (shared_content, lessons, quiz_sets) pour
 -- vérifier l'appartenance sans exposer class_members directement.
+
 create or replace function public.is_class_member(p_class_id uuid, p_user_id uuid)
 returns boolean
 language sql
@@ -95,6 +109,22 @@ as $$
     where class_id = p_class_id and user_id = p_user_id
   );
 $$;
+
+-- 3. Policies : demandes d'ami ------------------------------------------------
+
+create policy "friend_requests_select" on public.friend_requests
+  for select using (auth.uid() = from_user_id or auth.uid() = to_user_id);
+
+create policy "friend_requests_insert" on public.friend_requests
+  for insert with check (auth.uid() = from_user_id);
+
+create policy "friend_requests_update" on public.friend_requests
+  for update using (auth.uid() = to_user_id) with check (auth.uid() = to_user_id);
+
+create policy "friend_requests_delete" on public.friend_requests
+  for delete using (auth.uid() = from_user_id or auth.uid() = to_user_id);
+
+-- 4. Policies : classes virtuelles --------------------------------------------
 
 create policy "classes_select" on public.classes
   for select using (auth.uid() = owner_id or public.is_class_member(id, auth.uid()));
@@ -116,8 +146,8 @@ create policy "class_members_select" on public.class_members
   );
 
 -- Un membre ne peut s'auto-ajouter que s'il est le créateur de la classe, ou
--- si son invitation a déjà été marquée acceptée (voir class_invitations plus
--- bas : le flux d'acceptation met à jour le statut PUIS insère la ligne ici).
+-- si son invitation a déjà été marquée acceptée (voir plus bas : le flux
+-- d'acceptation met à jour le statut PUIS insère la ligne ici).
 create policy "class_members_insert" on public.class_members
   for insert with check (
     auth.uid() = user_id
@@ -138,19 +168,7 @@ create policy "class_members_delete" on public.class_members
     or exists (select 1 from public.classes c where c.id = class_id and c.owner_id = auth.uid())
   );
 
--- 3. Invitations à une classe -----------------------------------------------
-
-create table public.class_invitations (
-  id uuid primary key default gen_random_uuid(),
-  class_id uuid not null references public.classes(id) on delete cascade,
-  from_user_id uuid not null references auth.users(id) on delete cascade,
-  to_user_id uuid not null references auth.users(id) on delete cascade,
-  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
-  created_at timestamptz not null default now(),
-  unique (class_id, to_user_id)
-);
-
-alter table public.class_invitations enable row level security;
+-- 5. Policies : invitations à une classe ---------------------------------------
 
 create policy "class_invitations_select" on public.class_invitations
   for select using (
@@ -185,18 +203,7 @@ create policy "class_invitations_delete" on public.class_invitations
     or exists (select 1 from public.classes c where c.id = class_id and c.owner_id = auth.uid())
   );
 
--- 4. Leçons partagées dans une classe ----------------------------------------
-
-create table public.shared_content (
-  id uuid primary key default gen_random_uuid(),
-  class_id uuid not null references public.classes(id) on delete cascade,
-  lesson_id uuid not null references public.lessons(id) on delete cascade,
-  shared_by_user_id uuid not null references auth.users(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  unique (class_id, lesson_id)
-);
-
-alter table public.shared_content enable row level security;
+-- 6. Policies : leçons partagées dans une classe -------------------------------
 
 create policy "shared_content_select" on public.shared_content
   for select using (
@@ -216,7 +223,7 @@ create policy "shared_content_delete" on public.shared_content
     or exists (select 1 from public.classes c where c.id = class_id and c.owner_id = auth.uid())
   );
 
--- 5. Lecture des leçons/exercices partagés -----------------------------------
+-- 7. Lecture des leçons/exercices partagés -------------------------------------
 -- Politiques additives (en plus de "lessons_all_own" / "quiz_sets_all_own")
 -- qui donnent un accès en LECTURE SEULE aux membres d'une classe où la leçon
 -- a été partagée. L'écriture (modifier/supprimer/régénérer) reste réservée
@@ -263,7 +270,7 @@ create policy "quiz_sets_delete" on public.quiz_sets
     exists (select 1 from public.lessons l where l.id = quiz_sets.lesson_id and l.user_id = auth.uid())
   );
 
--- 6. Fonctions de lecture (recherche de pseudo, listes avec noms) -----------
+-- 8. Fonctions de lecture (recherche de pseudo, listes avec noms) -----------
 
 create or replace function public.search_users_by_username(query text)
 returns table(id uuid, username text)
