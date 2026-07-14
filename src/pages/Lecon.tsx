@@ -17,6 +17,7 @@ import {
   shareLessonToFriend,
 } from "../db/db";
 import { useProfile } from "../ProfileContext";
+import { errorMessage } from "../services/errorMessage";
 import { simplifyLesson } from "../services/simplifyLesson";
 import { summarizeLesson } from "../services/summarizeLesson";
 import type { FriendEntry, Lesson, SchoolClass } from "../types";
@@ -72,7 +73,7 @@ export default function LeconPage() {
         // Le contenu complet reste affiché dans tous les cas ; on garde
         // juste l'erreur pour proposer un nouvel essai plutôt que de
         // laisser l'élève sans explication ni recours.
-        if (!cancelled) setSummaryError(e instanceof Error ? e.message : "Erreur inconnue.");
+        if (!cancelled) setSummaryError(errorMessage(e));
       })
       .finally(() => {
         if (!cancelled) setSummarizing(false);
@@ -95,7 +96,7 @@ export default function LeconPage() {
         }
       })
       .catch((e) => {
-        if (!cancelled) setSimplifyError(e instanceof Error ? e.message : "Erreur inconnue.");
+        if (!cancelled) setSimplifyError(errorMessage(e));
       })
       .finally(() => {
         if (!cancelled) setSimplifying(false);
@@ -117,7 +118,7 @@ export default function LeconPage() {
     if (myClasses === null) {
       getMyClasses()
         .then(setMyClasses)
-        .catch((e) => setShareError(e instanceof Error ? e.message : "Erreur inconnue."));
+        .catch((e) => setShareError(errorMessage(e)));
     }
   }
 
@@ -127,7 +128,7 @@ export default function LeconPage() {
       await shareLessonToClass(classId, id);
       setSharedTo((s) => new Set(s).add(classId));
     } catch (e) {
-      setShareError(e instanceof Error ? e.message : "Erreur inconnue.");
+      setShareError(errorMessage(e));
     }
   }
 
@@ -137,7 +138,7 @@ export default function LeconPage() {
     if (friends === null) {
       getFriendData()
         .then((entries) => setFriends(entries.filter((e) => e.relation === "friend")))
-        .catch((e) => setFriendShareError(e instanceof Error ? e.message : "Erreur inconnue."));
+        .catch((e) => setFriendShareError(errorMessage(e)));
     }
   }
 
@@ -147,7 +148,7 @@ export default function LeconPage() {
       await shareLessonToFriend(friendUserId, id);
       setSharedToFriends((s) => new Set(s).add(friendUserId));
     } catch (e) {
-      setFriendShareError(e instanceof Error ? e.message : "Erreur inconnue.");
+      setFriendShareError(errorMessage(e));
     }
   }
 
