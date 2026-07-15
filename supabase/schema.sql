@@ -14,6 +14,7 @@ drop function if exists public.get_class_feed(uuid);
 drop function if exists public.count_pending_invitations();
 drop function if exists public.get_direct_shares_received();
 drop function if exists public.is_class_member(uuid, uuid);
+drop function if exists public.pgrst_reload_schema();
 
 drop policy if exists "lesson_photos_select_own" on storage.objects;
 drop policy if exists "lesson_photos_insert_own" on storage.objects;
@@ -610,3 +611,16 @@ as $$
     + (select count(*) from public.class_invitations where to_user_id = auth.uid() and status = 'pending')
   )::integer;
 $$;
+
+-- Fonction "bouton" pour recharger le cache de schéma PostgREST à distance,
+-- appelable en RPC depuis l'app plutôt que de repasser par le SQL Editor.
+create or replace function public.pgrst_reload_schema()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  select pg_notify('pgrst', 'reload schema');
+$$;
+
+grant execute on function public.pgrst_reload_schema() to authenticated;
