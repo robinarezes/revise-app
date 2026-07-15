@@ -359,6 +359,9 @@
   font-weight: 700;
   color: var(--text);
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lesson-card .card-name {
