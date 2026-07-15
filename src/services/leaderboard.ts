@@ -1,6 +1,7 @@
 import { callBackend } from "./backendClient";
 
 export type LeaderboardEntry = {
+  userId: string;
   rank: number;
   username: string;
   points: number;

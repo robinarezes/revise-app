@@ -790,9 +790,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           rank: myEntry?.rank ?? null,
           needsUsername: myPoints > 0 && !usernameById.get(userId),
         };
-        // Anonymize other players in the response: only reveal userId for
-        // the requester's own row (front-end needs it to highlight "you").
+        // userId de chacun inclus (en plus du pseudo déjà visible) pour
+        // permettre d'ajouter quelqu'un en ami directement depuis le
+        // classement.
         const publicRanking = ranking.map((r) => ({
+          userId: r.userId,
           rank: r.rank,
           username: r.username,
           points: r.points,

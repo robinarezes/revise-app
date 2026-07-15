@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "../components/BottomNav";
+import { getFriendData, sendFriendRequest } from "../db/db";
 import { getLeaderboard, type LeaderboardEntry, type LeaderboardResponse } from "../services/leaderboard";
+import type { FriendRelation } from "../types";
 
 const PODIUM_ORDER = [2, 1, 3];
 const PODIUM_HEIGHT: Record<number, number> = { 1: 108, 2: 84, 3: 64 };
@@ -19,6 +21,32 @@ function initial(name: string): string {
   return name.trim().charAt(0).toUpperCase() || "?";
 }
 
+function FriendActionButton({
+  entry,
+  status,
+  onAdd,
+}: {
+  entry: LeaderboardEntry;
+  status: FriendRelation | undefined;
+  onAdd: () => void;
+}) {
+  if (entry.isMe) return null;
+  if (status === "friend") {
+    return <span className="grade-pill">✓ Ami</span>;
+  }
+  if (status === "outgoing") {
+    return <span className="grade-pill">Envoyée ✓</span>;
+  }
+  if (status === "incoming") {
+    return <span className="grade-pill">T'a ajouté</span>;
+  }
+  return (
+    <button className="link-btn" style={{ padding: "4px 8px" }} onClick={onAdd}>
+      + Ami
+    </button>
+  );
+}
+
 function formatWeekEnd(weekStart: string): string {
   const start = new Date(`${weekStart}T00:00:00Z`);
   const end = new Date(start);
@@ -30,12 +58,28 @@ export default function ClassementPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [friendStatus, setFriendStatus] = useState<Map<string, FriendRelation>>(new Map());
 
   useEffect(() => {
     getLeaderboard()
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Erreur inconnue."));
+    getFriendData()
+      .then((entries) => setFriendStatus(new Map(entries.map((e) => [e.userId, e.relation]))))
+      .catch(() => {});
   }, []);
+
+  function handleAddFriend(entry: LeaderboardEntry) {
+    if (entry.isMe || friendStatus.has(entry.userId)) return;
+    setFriendStatus((m) => new Map(m).set(entry.userId, "outgoing"));
+    sendFriendRequest(entry.userId).catch(() => {
+      setFriendStatus((m) => {
+        const next = new Map(m);
+        next.delete(entry.userId);
+        return next;
+      });
+    });
+  }
 
   const podium = data?.ranking.filter((e) => e.rank <= 3) ?? [];
   const rest = data?.ranking.filter((e) => e.rank > 3) ?? [];
@@ -96,7 +140,14 @@ export default function ClassementPage() {
                 {PODIUM_ORDER.map((rank) => {
                   const entry = podium.find((e) => e.rank === rank);
                   if (!entry) return <div key={rank} className="podium-slot" />;
-                  return <PodiumSlot key={rank} entry={entry} />;
+                  return (
+                    <PodiumSlot
+                      key={rank}
+                      entry={entry}
+                      friendStatus={friendStatus.get(entry.userId)}
+                      onAddFriend={() => handleAddFriend(entry)}
+                    />
+                  );
                 })}
               </div>
             ) : null}
@@ -120,7 +171,14 @@ export default function ClassementPage() {
                         {entry.username} {entry.isMe ? "· toi" : ""}
                       </p>
                     </div>
-                    <span className="grade-pill">⭐ {entry.points}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <FriendActionButton
+                        entry={entry}
+                        status={friendStatus.get(entry.userId)}
+                        onAdd={() => handleAddFriend(entry)}
+                      />
+                      <span className="grade-pill">⭐ {entry.points}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -133,7 +191,15 @@ export default function ClassementPage() {
   );
 }
 
-function PodiumSlot({ entry }: { entry: LeaderboardEntry }) {
+function PodiumSlot({
+  entry,
+  friendStatus,
+  onAddFriend,
+}: {
+  entry: LeaderboardEntry;
+  friendStatus: FriendRelation | undefined;
+  onAddFriend: () => void;
+}) {
   return (
     <div className="podium-slot">
       <span className="podium-medal">{PODIUM_MEDAL[entry.rank]}</span>
@@ -145,6 +211,7 @@ function PodiumSlot({ entry }: { entry: LeaderboardEntry }) {
         {entry.isMe ? " (toi)" : ""}
       </p>
       <p className="podium-points">{entry.points} pts</p>
+      <FriendActionButton entry={entry} status={friendStatus} onAdd={onAddFriend} />
       <div
         className="podium-bar"
         style={{ height: PODIUM_HEIGHT[entry.rank], background: PODIUM_COLOR[entry.rank] }}
